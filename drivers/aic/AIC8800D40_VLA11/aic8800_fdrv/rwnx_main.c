@@ -3809,9 +3809,9 @@ static int rwnx_cfg80211_set_power_mgmt(struct wiphy *wiphy,
 										struct net_device *dev,
 										bool enabled, int timeout)
 {
-#if 0
 	struct rwnx_hw *rwnx_hw = wiphy_priv(wiphy);
 	u8 ps_mode;
+	int ret;
 
 	RWNX_DBG(RWNX_FN_ENTRY_STR);
 	if (timeout >= 0)
@@ -3828,13 +3828,10 @@ static int rwnx_cfg80211_set_power_mgmt(struct wiphy *wiphy,
 		ps_mode = MM_PS_MODE_OFF;
 	}
 
-	return rwnx_send_me_set_ps_mode(rwnx_hw, ps_mode);
-#else
-	/* TODO
-	 * Add handle in the feature!
-	 */
-	return 0;
-#endif
+	ret = rwnx_send_me_set_ps_mode(rwnx_hw, ps_mode);
+	netdev_info(dev, "set_power_mgmt: ps=%d -> mode %d, ret=%d",
+		    enabled, ps_mode, ret);
+	return ret;
 }
 
 static int rwnx_cfg80211_set_txq_params(struct wiphy *wiphy, struct net_device *dev,
