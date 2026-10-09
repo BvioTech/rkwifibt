@@ -5,11 +5,11 @@ obj-$(CONFIG_AIC8800_BTLPM_SUPPORT) := aic8800_btlpm.o
 ccflags-y += -I$(srctree)/$(src)/../aic8800_bsp
 
 # Platform support list
-CONFIG_PLATFORM_ROCKCHIP ?= y
+CONFIG_PLATFORM_ROCKCHIP ?= n
 CONFIG_PLATFORM_ROCKCHIP2 ?= n
 CONFIG_PLATFORM_ALLWINNER ?= n
 CONFIG_PLATFORM_AMLOGIC ?= n
-CONFIG_PLATFORM_UBUNTU ?= n
+CONFIG_PLATFORM_UBUNTU ?= y
 
 
 CONFIG_SUPPORT_LPM ?= n
@@ -79,3 +79,5 @@ uninstall:
 
 clean:
 	rm -rf *.o *.ko *.o.* *.mod.* modules.* Module.* .a* .o* .*.o.* *.mod .tmp* .cache.mk
+
+

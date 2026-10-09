@@ -483,7 +483,7 @@ static void __nat25_db_network_insert(struct rwnx_vif *vif,
 
 	hash = __nat25_network_hash(networkAddr);
 	db = vif->nethash[hash];
-
+	
 	while (db != NULL) {
 		if (!memcmp(db->networkAddr, networkAddr, MAX_NETWORK_ADDR_LEN)) {
 			memcpy(db->macAddr, macAddr, ETH_ALEN);
@@ -1560,7 +1560,7 @@ void dhcp_flag_bcast(struct rwnx_vif *vif, struct sk_buff *skb)
 							register int sum = 0;
 
 							printk("DHCP: change flag of DHCP request to broadcast.\n");
-
+					
 						#if 1
 							/* or BROADCAST flag */
 							dhcph->flags |= htons(BROADCAST_FLAG);

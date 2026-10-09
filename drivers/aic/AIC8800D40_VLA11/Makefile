@@ -1,8 +1,6 @@
 CONFIG_AIC8800_BTLPM_SUPPORT := m
 CONFIG_AIC8800_WLAN_SUPPORT := m
 CONFIG_AIC_WLAN_SUPPORT := m
-CONFIG_AIC_FW_PATH = "/lib/firmware"
-export CONFIG_AIC_FW_PATH
 
 obj-$(CONFIG_AIC8800_BTLPM_SUPPORT) += aic8800_btlpm/
 obj-$(CONFIG_AIC8800_WLAN_SUPPORT) += aic8800_fdrv/
@@ -12,7 +10,7 @@ MAKEFLAGS +=-j$(shell nproc)
 
 ########## config option ##########
 export CONFIG_USE_FW_REQUEST = n
-export CONFIG_PREALLOC_RX_SKB = n
+export CONFIG_PREALLOC_RX_SKB = y
 export CONFIG_PREALLOC_TXQ = y
 export CONFIG_OOB = n
 export CONFIG_GPIO_WAKEUP = n
@@ -28,8 +26,10 @@ export CONFIG_PLATFORM_UBUNTU = n
 
 ifeq ($(CONFIG_PLATFORM_ROCKCHIP), y)
 ARCH = arm64
-KDIR = /home/yaya/E/Rockchip/3566/firefly/Android11.0/Firefly-RK356X_Android11.0_git_20210824/RK356X_Android11.0/kernel
-CROSS_COMPILE = /home/yaya/E/Rockchip/3566/firefly/Android11.0/Firefly-RK356X_Android11.0_git_20210824/RK356X_Android11.0/prebuilts/gcc/linux-x86/aarch64/gcc-linaro-6.3.1-2017.05-x86_64_aarch64-linux-gnu/bin/aarch64-linux-gnu-
+#KDIR = /home/yaya/E/Rockchip/3566/firefly/Android11.0/Firefly-RK356X_Android11.0_git_20210824/RK356X_Android11.0/kernel
+#CROSS_COMPILE = /home/yaya/E/Rockchip/3566/firefly/Android11.0/Firefly-RK356X_Android11.0_git_20210824/RK356X_Android11.0/prebuilts/gcc/linux-x86/aarch64/gcc-linaro-6.3.1-2017.05-x86_64_aarch64-linux-gnu/bin/aarch64-linux-gnu-
+KDIR = /data/taoCode36/Android11.0/Firefly-RK356X_Android11.0_git_20210824/RK356X_Android11.0/kernel 
+CROSS_COMPILE = /data/taoCode36/Android11.0/Firefly-RK356X_Android11.0_git_20210824/RK356X_Android11.0/prebuilts/gcc/linux-x86/aarch64/gcc-linaro-6.3.1-2017.05-x86_64_aarch64-linux-gnu/bin/aarch64-linux-gnu-
 ccflags-y += -DANDROID_PLATFORM
 ccflags-y += -DCONFIG_PLATFORM_ROCKCHIP
 endif
@@ -63,7 +63,8 @@ KDIR  = /lib/modules/$(shell uname -r)/build
 PWD   = $(shell pwd)
 KVER = $(shell uname -r)
 MODDESTDIR = /lib/modules/$(KVER)/kernel/drivers/net/wireless/aic8800
-ARCH = x86_64
+SUBARCH = $(shell uname -m | sed -e s/i.86/i386/ -e s/armv.l/arm/ -e s/aarch64/arm64/)
+ARCH ?= $(SUBARCH)
 CROSS_COMPILE ?=
 endif
 ###########################################
@@ -90,3 +91,4 @@ clean:
 	cd aic8800_fdrv/;make clean;cd ..
 	cd aic8800_btlpm/;make clean;cd ..
 	rm -rf modules.order Module.symvers .modules.order.cmd .Module.symvers.cmd .tmp_versions/
+

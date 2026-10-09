@@ -643,7 +643,7 @@ static int rwnx_load_firmware(u32 **fw_buf, const char *name, struct device *dev
         *fw_buf = NULL;
         return -1;
     }
-
+	
 	len = snprintf(path, FW_PATH_MAX_LEN, "%s/%s", aic_fw_path, name);
 
     //len = snprintf(path, FW_PATH_MAX_LEN, "%s", name);
@@ -954,11 +954,11 @@ void get_userconfig_xtal_cap(xtal_cap_conf_t *xtal_cap)
     if(nvram_info.xtal_cap.enable){
         *xtal_cap = nvram_info.xtal_cap;
     }
-
+    
     if(userconfig_info.xtal_cap.enable){
         *xtal_cap = userconfig_info.xtal_cap;
     }
-
+    
     AICWFDBG(LOGINFO, "%s:enable       :%d\r\n", __func__, xtal_cap->enable);
     AICWFDBG(LOGINFO, "%s:xtal_cap     :%d\r\n", __func__, xtal_cap->xtal_cap);
     AICWFDBG(LOGINFO, "%s:xtal_cap_fine:%d\r\n", __func__, xtal_cap->xtal_cap_fine);
@@ -2256,39 +2256,39 @@ static int aic_load_firmware(u32 ** fw_buf, char *fw_path,const char *name, stru
 	unsigned char decrypt[16];
 	int size = 0;
 	int ret = 0;
-
+	
 	AICWFDBG(LOGINFO, "%s: request firmware = %s \n", __func__ ,name);
-
+	
 	ret = request_firmware(&fw, name, NULL);
-
+		
 	if (ret < 0) {
 		AICWFDBG(LOGERROR, "Load %s fail\n", name);
 		release_firmware(fw);
 		return -1;
 	}
-
+		
 	size = fw->size;
 	dst = (u32 *)fw->data;
-
+	
 	if (size <= 0) {
 		AICWFDBG(LOGERROR, "wrong size of firmware file\n");
 		release_firmware(fw);
 		return -1;
 	}
-
+	
 	buffer = vmalloc(size);
 	memset(buffer, 0, size);
 	memcpy(buffer, dst, size);
-
+		
 	*fw_buf = buffer;
-
+	
 	MD5Init(&md5);
 	MD5Update(&md5, (unsigned char *)buffer, size);
 	MD5Final(&md5, decrypt);
 	AICWFDBG(LOGINFO, MD5PINRT, MD5(decrypt));
-
+		
 	release_firmware(fw);
-
+		
 	return size;
 #else
     void *buffer=NULL;
@@ -2322,7 +2322,7 @@ static int aic_load_firmware(u32 ** fw_buf, char *fw_path,const char *name, stru
 		}
 		*fw_buf=NULL;
 		__putname(path);
-		fp=NULL;
+ 		fp=NULL;
 		return -1;
     }
 
@@ -3354,7 +3354,7 @@ int8_t get_powerlimit_by_chnum(uint8_t chnum, uint8_t r_idx, uint8_t bw)
 static int rwnx_plat_userconfig_load(struct rwnx_hw *rwnx_hw) {
 
 	if(rwnx_hw->sdiodev->chipid == PRODUCT_ID_AIC8801){
-
+		
 		rwnx_plat_userconfig_upload_android(rwnx_hw, aic_fw_path, FW_USERCONFIG_NAME);
 	}else if(rwnx_hw->sdiodev->chipid == PRODUCT_ID_AIC8800DC){
 		rwnx_plat_userconfig_load_8800dc(rwnx_hw);
@@ -3554,3 +3554,5 @@ MODULE_FIRMWARE(RWNX_MAC_FW_NAME);
 #ifndef CONFIG_RWNX_TL4
 MODULE_FIRMWARE(RWNX_MAC_FW_NAME2);
 #endif
+
+

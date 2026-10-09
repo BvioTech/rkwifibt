@@ -1234,27 +1234,27 @@ static ssize_t rwnx_dbgfs_regdbg_write(struct file *file,
 	char buf[32];
 	u32 addr,val, oper;
 	size_t len = min_t(size_t, count, sizeof(buf) - 1);
-	struct dbg_mem_read_cfm mem_read_cfm;
-	int ret;
+    	struct dbg_mem_read_cfm mem_read_cfm;
+    	int ret;
 
 	if (copy_from_user(buf, user_buf, len))
 		return -EFAULT;
 
-	buf[len] = '\0';
+    	buf[len] = '\0';
 
 	if (sscanf(buf, "%x %x %x" , &oper, &addr, &val ) > 0)
 		printk("addr=%x, val=%x,oper=%d\n", addr, val, oper);
 
-	if(oper== 0) {
+    	if(oper== 0) {
 		ret = rwnx_send_dbg_mem_read_req(priv, addr, &mem_read_cfm);
-	printk("[0x%x] = [0x%x]\n", mem_read_cfm.memaddr, mem_read_cfm.memdata);
+        	printk("[0x%x] = [0x%x]\n", mem_read_cfm.memaddr, mem_read_cfm.memdata);
 	} else if (oper == 1) {
 		ret = rwnx_send_dbg_mem_read_req(priv, addr, &mem_read_cfm);
 		printk("before write : [0x%x] = [0x%x]\n", mem_read_cfm.memaddr, mem_read_cfm.memdata);
 		ret = rwnx_send_dbg_mem_block_write_req(priv, addr, 4, &val);
 		ret = rwnx_send_dbg_mem_read_req(priv, addr, &mem_read_cfm);
 		printk("after write : [0x%x] = [0x%x]\n", mem_read_cfm.memaddr, mem_read_cfm.memdata);
-	}
+    	}
 
 	return count;
 }
@@ -2699,3 +2699,4 @@ void rwnx_dbgfs_unregister(struct rwnx_hw *rwnx_hw)
 }
 
 #endif /* CONFIG_DEBUG_FS */
+

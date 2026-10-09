@@ -195,7 +195,7 @@ void aicwf_nl_recv_msg(struct sk_buff *skb)
 
 			AICWFDBG(LOGSTEER, MANAGER_STR"AIC_NL_B_STEER_ROAM_TYPE (hostapd_cli)!\n");
 			AICWFDBG(LOGSTEER, MANAGER_STR"sta_mac="MAC_FMT"\n", MAC_ARG(roam_info->sta_mac));
-			AICWFDBG(LOGSTEER, MANAGER_STR"bss_mac="MAC_FMT" bss_ch=%u method=%s\n",
+			AICWFDBG(LOGSTEER, MANAGER_STR"bss_mac="MAC_FMT" bss_ch=%u method=%s\n", 
 				MAC_ARG(roam_info->bss_mac),
 				roam_info->bss_ch,
 				roam_info->method == 0 ? "11V" : "Deauth");
@@ -285,7 +285,7 @@ void aicwf_nl_send_del_sta_msg(struct rwnx_vif *rwnx_vif, u8_l *mac)
 	hdr.id = AIC_ELM_INTF_ID;
 	hdr.len = ELM_INTF_LEN;
 	aicwf_netlink_set_msg(&msg, &msg_len, (void *)&hdr, ELM_HEADER_LEN);
-
+	
 	/* element: AIC_ELM_INTF_ID */
 	intf.root = 0; /* TBD */
 	intf.band = rwnx_vif->ap.band;
@@ -329,7 +329,7 @@ void aicwf_nl_send_new_sta_msg(struct rwnx_vif *rwnx_vif, u8_l *mac)
 	hdr.id = AIC_ELM_INTF_ID;
 	hdr.len = ELM_INTF_LEN;
 	aicwf_netlink_set_msg(&msg, &msg_len, (void *)&hdr, ELM_HEADER_LEN);
-
+	
 	/* element: AIC_ELM_INTF_ID */
 	intf.root = 0; /* TBD */
 	intf.band = rwnx_vif->ap.band;
@@ -498,7 +498,7 @@ void aicwf_nl_send_frame_rpt_msg(struct rwnx_vif *rwnx_vif, u16_l frame_type, u8
 	hdr.id = AIC_ELM_FRAME_INFO_ID;
 	hdr.len = ELM_FRAME_INFO_LEN;
 	aicwf_netlink_set_msg(&msg, &msg_len, (void *)&hdr, ELM_HEADER_LEN);
-
+	
 	/* element: AIC_ELM_FRAME_INFO_ID */
 	frame_info.frame_type = frame_type;
 	memcpy(frame_info.sa, sa, 6);
@@ -599,3 +599,4 @@ void aicwf_nl_deinit(void)
 
 	return;
 }
+

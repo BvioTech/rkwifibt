@@ -151,7 +151,7 @@ int bt_sdio_recv(u8 *data,u32 data_len)
 		return 0;
 	}
 	//bt_data_dump("bt_skb", skb, skb->len);
-
+	
 	if(aic_enqueue(skb)<0){
 		kfree_skb(skb);
 	}else{
@@ -368,7 +368,7 @@ static struct sk_buff *aic_dequeue_try(unsigned int deq_len)
     struct sk_buff *skb;
     struct sk_buff *skb_copy;
 	unsigned long flags = 0;
-
+	
 	spin_lock_irqsave(&queue_lock, flags);
     if (aic_skb_queue_front == aic_skb_queue_rear) {
         AICBT_WARN("%s: Queue is empty", __func__);
@@ -406,7 +406,7 @@ void aic_clear_queue(void)
 {
     struct sk_buff *skb;
 	unsigned long flags = 0;
-
+	
 	spin_lock_irqsave(&queue_lock, flags);
     while(!is_queue_empty()) {
         skb = aic_skb_queue[aic_skb_queue_front];
@@ -424,7 +424,7 @@ int aic_queue_cnt(void)
 {
     int ret_cnt = 0;
 	unsigned long flags = 0;
-
+	
 	spin_lock_irqsave(&queue_lock, flags);
     if(is_queue_empty()) {
         ret_cnt = 0;
@@ -616,7 +616,7 @@ static void hci_send_to_stack(struct hci_dev *hdev, struct sk_buff *skb)
         wake_up_interruptible(&btchr_read_wait);
     }
 
-
+	
     return;
 }
 
@@ -1033,7 +1033,7 @@ static ssize_t btchr_write(struct file *file_p,
     bt_cb(skb)->pkt_type = *((__u8 *)skb->data);
     //skb_pull(skb, 1);
     //data->hdev->send(skb);
-
+	
 	//bt_data_dump("btwrite", skb->data, skb->len);
 	err = rwnx_sdio_bt_send_req(g_rwnx_plat->sdiodev->rwnx_hw, skb->len, skb);
 	if(err<0){

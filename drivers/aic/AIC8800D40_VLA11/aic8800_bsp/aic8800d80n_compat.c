@@ -128,7 +128,7 @@ int rwnx_plat_bin_fw_upload_2_with_version(struct aic_sdio_dev *rwnx_hw, u32 fw_
 
     if (dst) {
 #ifndef CONFIG_FIRMWARE_ARRAY
-        //vfree(dst);
+        vfree(dst);
 #endif
         dst = NULL;
     }
@@ -245,7 +245,7 @@ int aicwf_plat_patch_table_load_8800d80n(struct aic_sdio_dev *rwnx_hw)
 
     if (dst) {
 #ifndef CONFIG_FIRMWARE_ARRAY
-        //vfree(dst);
+        vfree(dst);
 #endif
         dst = NULL;
     }

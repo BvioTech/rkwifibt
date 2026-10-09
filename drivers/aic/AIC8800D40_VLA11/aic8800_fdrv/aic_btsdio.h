@@ -70,7 +70,7 @@ struct btusb_data {
     struct usb_anchor deferred;*/
     int tx_in_flight;
     spinlock_t txlock;
-
+	
 #if (CONFIG_BLUEDROID == 0)
 #if HCI_VERSION_CODE >= KERNEL_VERSION(3, 18, 0)
 		spinlock_t rxlock;
@@ -551,3 +551,4 @@ void btsdio_remove(void);
 int bt_sdio_recv(u8 *data,u32 data_len);
 #endif
 #endif//_AICWF_SDIO_BT_H_
+

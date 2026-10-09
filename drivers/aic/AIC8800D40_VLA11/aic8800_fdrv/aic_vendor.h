@@ -360,3 +360,4 @@ typedef struct wl_mkeep_alive_pkt {
 } wl_mkeep_alive_pkt_t;
 
 #endif /* _AIC_VENDOR_H */
+

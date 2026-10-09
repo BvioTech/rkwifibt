@@ -655,7 +655,7 @@ int aicbsp_sdio_init(void)
 		return -1;
 	}
 
-
+	
 	return 0;
 }
 
@@ -1312,8 +1312,8 @@ int aicwf_sdio_aggr(struct aicwf_tx_priv *tx_priv, struct sk_buff *pkt)
 
     if (tx_priv->sdiodev->chipid == PRODUCT_ID_AIC8801 || tx_priv->sdiodev->chipid == PRODUCT_ID_AIC8800DC ||
         tx_priv->sdiodev->chipid == PRODUCT_ID_AIC8800DW) {
-	start_ptr[0] = ((tx_priv->tail - start_ptr - 4) & 0xff);
-	start_ptr[1] = (((tx_priv->tail - start_ptr - 4)>>8) & 0x0f);
+    	start_ptr[0] = ((tx_priv->tail - start_ptr - 4) & 0xff);
+    	start_ptr[1] = (((tx_priv->tail - start_ptr - 4)>>8) & 0x0f);
     }
 
 	tx_priv->aggr_buf->dev = pkt->dev;
@@ -1519,29 +1519,29 @@ void aicwf_sdio_hal_irqhandler(struct sdio_func *func)
 
     if (sdiodev->chipid  == PRODUCT_ID_AIC8801 || sdiodev->chipid  == PRODUCT_ID_AIC8800DC ||
         sdiodev->chipid  == PRODUCT_ID_AIC8800DW) {
-	ret = aicwf_sdio_readb(sdiodev, sdiodev->sdio_reg.block_cnt_reg, &intstatus);
+    	ret = aicwf_sdio_readb(sdiodev, sdiodev->sdio_reg.block_cnt_reg, &intstatus);
 
-	while(intstatus){
-	    sdiodev->rx_priv->data_len = intstatus * SDIOWIFI_FUNC_BLOCKSIZE;
-	    if (intstatus > 0) {
-	        if(intstatus < 64) {
-	            pkt = aicwf_sdio_readframes(sdiodev, 0);
-	        } else {
-	            aicwf_sdio_intr_get_len_bytemode(sdiodev, &byte_len);//byte_len must<= 128
-	            sdio_info("byte mode len=%d\r\n", byte_len);
-	            pkt = aicwf_sdio_readframes(sdiodev, 0);
-	        }
-	    } else {
-	#ifndef CONFIG_PLATFORM_ALLWINNER
-	        sdio_err("Interrupt but no data\n");
-	#endif
-	    }
+    	while(intstatus){
+    	    sdiodev->rx_priv->data_len = intstatus * SDIOWIFI_FUNC_BLOCKSIZE;
+    	    if (intstatus > 0) {
+    	        if(intstatus < 64) {
+    	            pkt = aicwf_sdio_readframes(sdiodev, 0);
+    	        } else {
+    	            aicwf_sdio_intr_get_len_bytemode(sdiodev, &byte_len);//byte_len must<= 128
+    	            sdio_info("byte mode len=%d\r\n", byte_len);
+    	            pkt = aicwf_sdio_readframes(sdiodev, 0);
+    	        }
+    	    } else {
+    	#ifndef CONFIG_PLATFORM_ALLWINNER
+    	        sdio_err("Interrupt but no data\n");
+    	#endif
+    	    }
 
-	    if (pkt)
-	        aicwf_sdio_enq_rxpkt(sdiodev, pkt);
+    	    if (pkt)
+    	        aicwf_sdio_enq_rxpkt(sdiodev, pkt);
 
-	    ret = aicwf_sdio_readb(sdiodev, sdiodev->sdio_reg.block_cnt_reg, &intstatus);
-	}
+    	    ret = aicwf_sdio_readb(sdiodev, sdiodev->sdio_reg.block_cnt_reg, &intstatus);
+    	}
     }else if (sdiodev->chipid  == PRODUCT_ID_AIC8800D80 ||
 			sdiodev->chipid == PRODUCT_ID_AIC8800D80N ||
 			sdiodev->chipid == PRODUCT_ID_AIC8800D80WN ||
@@ -1588,11 +1588,11 @@ void aicwf_sdio_hal_irqhandler(struct sdio_func *func)
                     sdiodev->rx_priv->data_len = (intstatus & 0x7FU) * SDIOWIFI_FUNC_BLOCKSIZE;
                     pkt = aicwf_sdio_readframes(sdiodev, 0);
                 }
-		}
+    		}
     } else {
-	#ifndef CONFIG_PLATFORM_ALLWINNER
+    	#ifndef CONFIG_PLATFORM_ALLWINNER
             sdio_err("Interrupt but no data\n");
-	#endif
+    	#endif
         }
 
         if (pkt)
@@ -2117,3 +2117,4 @@ EXPORT_SYMBOL(get_sdio_func);
 EXPORT_SYMBOL(set_irq_handler);
 EXPORT_SYMBOL(get_adap_test);
 EXPORT_SYMBOL(get_fdrv_no_reg_sdio);
+

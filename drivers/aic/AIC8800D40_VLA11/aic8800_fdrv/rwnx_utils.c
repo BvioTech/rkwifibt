@@ -36,3 +36,4 @@ int rwnx_init_aic(struct rwnx_hw *rwnx_hw)
 
 	return 0;
 }
+

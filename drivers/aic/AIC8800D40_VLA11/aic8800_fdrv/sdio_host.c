@@ -134,3 +134,4 @@ int aicwf_rwnx_sdio_platform_init(struct aic_sdio_dev *sdiodev)
 
 	return ret;
 }
+

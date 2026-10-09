@@ -27,7 +27,7 @@ extern int tx_fc_high_water;
 static inline int rwnx_txq_sta_idx(struct rwnx_sta *sta, u8 tid)
 {
 	if (is_multicast_sta(sta->sta_idx)){
-        if((g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8801) ||
+        if((g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8801) || 
 			((g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8800DC ||
 			g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8800DW) && chip_id < 3)){
 			    return NX_FIRST_VIF_TXQ_IDX_FOR_OLD_IC + sta->vif_idx;
@@ -42,7 +42,7 @@ static inline int rwnx_txq_sta_idx(struct rwnx_sta *sta, u8 tid)
 static inline int rwnx_txq_vif_idx(struct rwnx_vif *vif, u8 type)
 {
 
-	if((g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8801) ||
+	if((g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8801) || 
 		((g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8800DC ||
 		g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8800DW) && chip_id < 3)){
 		return NX_FIRST_VIF_TXQ_IDX_FOR_OLD_IC + master_vif_idx(vif) + (type * NX_VIRT_DEV_MAX);
@@ -104,7 +104,7 @@ static void rwnx_txq_init(struct rwnx_txq *txq, int idx, u8 status,
     int nx_bcmc_txq_ndev_idx = NX_BCMC_TXQ_NDEV_IDX;
     int nx_first_vif_txq_idx = NX_FIRST_VIF_TXQ_IDX;
 
-    if((g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8801) ||
+    if((g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8801) || 
 		((g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8800DC ||
 		g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8800DW) && chip_id < 3)){
 		    nx_first_unk_txq_idx = NX_FIRST_UNK_TXQ_IDX_FOR_OLD_IC;
@@ -351,8 +351,8 @@ void rwnx_txq_offchan_init(struct rwnx_vif *rwnx_vif)
 	struct rwnx_txq *txq;
     int nx_off_chan_txq_idx = NX_OFF_CHAN_TXQ_IDX;
 
-	if((g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8801) ||
-		((g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8800DC ||
+	if((g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8801) || 
+		((g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8800DC || 
 		g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8800DW) && chip_id < 3)){
 		    nx_off_chan_txq_idx = NX_OFF_CHAN_TXQ_IDX_FOR_OLD_IC;
 		}
@@ -376,8 +376,8 @@ void rwnx_txq_offchan_deinit(struct rwnx_vif *rwnx_vif)
 
     int nx_off_chan_txq_idx = NX_OFF_CHAN_TXQ_IDX;
 
-	if((g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8801) ||
-		((g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8800DC ||
+	if((g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8801) || 
+		((g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8800DC || 
 		g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8800DW) && chip_id < 3)){
 		    nx_off_chan_txq_idx = NX_OFF_CHAN_TXQ_IDX_FOR_OLD_IC;
 		}
@@ -752,7 +752,7 @@ void rwnx_txq_offchan_start(struct rwnx_hw *rwnx_hw)
 	struct rwnx_txq *txq;
     int nx_off_chan_txq_idx = NX_OFF_CHAN_TXQ_IDX;
 
-	if((g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8801) ||
+	if((g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8801) || 
 		((g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8800DC ||
 		g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8800DW) && chip_id < 3)){
             nx_off_chan_txq_idx = NX_OFF_CHAN_TXQ_IDX_FOR_OLD_IC;
@@ -1304,7 +1304,7 @@ void rwnx_hwq_process(struct rwnx_hw *rwnx_hw, struct rwnx_hwq *hwq)
 		if(txq->idx == TXQ_INACTIVE){
 			printk("%s txq->idx == TXQ_INACTIVE \r\n", __func__);
             rwnx_txq_del_from_hw_list(txq);
-            rwnx_txq_flush(rwnx_hw, txq);
+            rwnx_txq_flush(rwnx_hw, txq);  
 			continue;
 		}
 		BUG_ON(txq->idx == TXQ_INACTIVE);

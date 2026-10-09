@@ -12,7 +12,7 @@ int aic_rxbuff_num_max = 30;
 
 int aic_rxbuff_size = (64 * 512);
 
-struct rx_buff *aicwf_prealloc_rxbuff_alloc(spinlock_t *lock)
+struct rx_buff *aicwf_prealloc_rxbuff_alloc(spinlock_t *lock) 
 {
     unsigned long flags;
     struct rx_buff *rxbuff = NULL;
@@ -56,7 +56,7 @@ int aicwf_prealloc_init(void)
 
     printk("%s enter\n", __func__);
     INIT_LIST_HEAD(&aic_rx_buff_list.rxbuff_list);
-
+    
 	for (i = 0 ; i < aic_rxbuff_num_max ; i++) {
         rxbuff = kzalloc(sizeof(struct rx_buff), GFP_KERNEL);
         if (rxbuff) {
@@ -83,7 +83,7 @@ void aicwf_prealloc_exit(void)
 {
     struct rx_buff *rxbuff;
     struct rx_buff *pos;
-
+    
     printk("%s enter\n", __func__);
 
 	printk("free pre alloc rxbuff list %d\n", (int)atomic_read(&aic_rx_buff_list.rxbuff_list_len));
@@ -94,3 +94,4 @@ void aicwf_prealloc_exit(void)
     }
 }
 #endif
+

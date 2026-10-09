@@ -87,3 +87,4 @@ void aicwf_wakeup_lock_deinit(struct rwnx_hw *rwnx_hw)
 	rwnx_hw->ws_irqrx = NULL;
 	rwnx_hw->ws_pwrctrl = NULL;
 }
+

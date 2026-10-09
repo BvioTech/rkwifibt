@@ -593,3 +593,4 @@ void aicwf_set_cmd_tx(void *dev, struct lmac_msg *msg, uint len)
 
 	aicwf_bus_txmsg(bus, buffer, len + 8);
 }
+

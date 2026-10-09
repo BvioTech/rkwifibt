@@ -18,3 +18,4 @@ int aicwf_plat_cinit_exec_8800d80n(struct aic_sdio_dev *rwnx_hw);
 int aicwf_plat_calib_exec_8800d80n(struct aic_sdio_dev *rwnx_hw);
 
 #endif
+

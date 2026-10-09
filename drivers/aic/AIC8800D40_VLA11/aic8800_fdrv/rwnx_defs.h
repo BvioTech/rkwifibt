@@ -665,10 +665,10 @@ struct amsdu_subframe_hdr {
 /* rwnx driver status */
 void rwnx_set_conn_state(struct rwnx_vif *vif, atomic_t *drv_conn_state, int state);
 
-enum rwnx_drv_connect_status {
+enum rwnx_drv_connect_status { 
 	RWNX_DRV_STATUS_DISCONNECTED = 0,
-	RWNX_DRV_STATUS_DISCONNECTING,
-	RWNX_DRV_STATUS_CONNECTING,
+	RWNX_DRV_STATUS_DISCONNECTING, 
+	RWNX_DRV_STATUS_CONNECTING, 
 	RWNX_DRV_STATUS_CONNECTED,
 	RWNX_DRV_STATUS_ROAMING,
 };
@@ -783,7 +783,7 @@ struct rwnx_hw {
 	bool band_5g_support;
 	u8_l vendor_info;
 	bool fwlog_en;
-
+	
 	struct list_head defrag_list;
 	spinlock_t defrag_lock;
 

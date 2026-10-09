@@ -119,3 +119,6 @@ ofst_5g_ofdm_midrate_chan_155=0
 xtal_enable=0
 xtal_cap=24
 xtal_cap_fine=31
+
+
+

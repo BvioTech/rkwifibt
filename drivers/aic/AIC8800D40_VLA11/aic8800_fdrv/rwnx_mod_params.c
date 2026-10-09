@@ -899,7 +899,7 @@ static void rwnx_set_vht_capa(struct rwnx_hw *rwnx_hw, struct wiphy *wiphy)
 	    }
 
 		rwnx_hw->vht_cap_5G.cap |= IEEE80211_VHT_CAP_MAX_A_MPDU_LENGTH_EXPONENT_MASK;
-	}
+	} 
 #endif//USE_5G
 	return;
 #else
@@ -1351,7 +1351,7 @@ static void rwnx_set_he_capa(struct rwnx_hw *rwnx_hw, struct wiphy *wiphy)
 	#endif
 	if (rwnx_hw->mod_params->stbc_on)
 		he_cap->he_cap_elem.phy_cap_info[2] |= IEEE80211_HE_PHY_CAP2_STBC_RX_UNDER_80MHZ;
-
+	
 	#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 13, 0)
 	he_cap->he_cap_elem.phy_cap_info[3] |= IEEE80211_HE_PHY_CAP3_DCM_MAX_CONST_RX_16_QAM |
 		IEEE80211_HE_PHY_CAP3_DCM_MAX_RX_NSS_1 |
@@ -1361,7 +1361,7 @@ static void rwnx_set_he_capa(struct rwnx_hw *rwnx_hw, struct wiphy *wiphy)
 		IEEE80211_HE_PHY_CAP3_DCM_MAX_RX_NSS_1 |
 		IEEE80211_HE_PHY_CAP3_RX_HE_MU_PPDU_FROM_NON_AP_STA;
 	#endif
-
+	
 
 	if (rwnx_hw->mod_params->bfmee) {
 		he_cap->he_cap_elem.phy_cap_info[4] |= IEEE80211_HE_PHY_CAP4_SU_BEAMFORMEE;
@@ -1623,7 +1623,7 @@ if (rwnx_hw->mod_params->custregd) {
             wiphy->bands[NL80211_BAND_2GHZ]->n_channels += 13;
 			//#ifdef USE_5G
 			if(rwnx_hw->band_5g_support){
-	wiphy->bands[NL80211_BAND_5GHZ]->n_channels += 59;
+            	wiphy->bands[NL80211_BAND_5GHZ]->n_channels += 59;
 			}
 			//#endif
         }
@@ -1754,9 +1754,9 @@ int rwnx_handle_dynparams(struct rwnx_hw *rwnx_hw, struct wiphy *wiphy)
     if (rwnx_hw->sdiodev->chipid == PRODUCT_ID_AIC8800D80 ||
 		rwnx_hw->sdiodev->chipid == PRODUCT_ID_AIC8800D80N ||
 		rwnx_hw->sdiodev->chipid == PRODUCT_ID_AIC8800D80X2) {
-        rwnx_hw->mod_params->use_80 = true;
+        rwnx_hw->mod_params->use_80 = true;    
     }
-
+    
     if (rwnx_hw->sdiodev->chipid != PRODUCT_ID_AIC8800D80 &&
 		rwnx_hw->sdiodev->chipid != PRODUCT_ID_AIC8800D80N &&
 		rwnx_hw->sdiodev->chipid != PRODUCT_ID_AIC8800D80X2 &&
@@ -1816,3 +1816,4 @@ void rwnx_custregd(struct rwnx_hw *rwnx_hw, struct wiphy *wiphy)
 #endif
 
 }
+

@@ -45,3 +45,4 @@ void rwnx_fw_log_deinit(struct rwnx_fw_log *fw_log)
 	fw_log->buf.end   = NULL;
 	fw_log->buf.size = 0;
 }
+

@@ -296,3 +296,5 @@ int aicwifi_patch_config_8800d80(struct aic_sdio_dev *sdiodev)
 
 	return 0;
 }
+
+

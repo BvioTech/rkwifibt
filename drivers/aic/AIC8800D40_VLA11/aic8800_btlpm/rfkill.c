@@ -78,3 +78,4 @@ int rfkill_bluetooth_remove(struct platform_device *dev)
 	pr_info("<--%s\n", __func__);
 	return 0;
 }
+

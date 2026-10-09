@@ -1390,7 +1390,7 @@ static void rwnx_radar_process_pulse(struct work_struct *ws)
 		if(chain == RWNX_RADAR_RIU) {
             u16 pri;
             struct dfs_pattern_detector *dpd = NULL;
-
+            
 			rm->ps[rm->idx] = pulses[chain][i];
 			rm->tm[rm->idx] = now;
 			rm->cnt ++;
@@ -1419,7 +1419,7 @@ static void rwnx_radar_process_pulse(struct work_struct *ws)
                 for (k = 0; k < dpd->num_radar_types; k++)
                 {
                 spc = (struct radar_detector_specs *)&dpd->radar_spec[k];
-                AICWFDBG(LOGINFO, "%d       %3d, %3d        %4d  %4d  %d    %2d   %2d    %d     %d",
+                AICWFDBG(LOGINFO, "%d       %3d, %3d        %4d  %4d  %d    %2d   %2d    %d     %d", 
                 spc->type_id,
                 spc->width_min,
                 spc->width_max,

@@ -1,11 +1,11 @@
 #include <linux/memory.h>
 #include "md5.h"
-
+ 
 unsigned char PADDING[]={0x80,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
                          0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
                          0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
                          0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
-
+                         
 void MD5Init(MD5_CTX *context)
 {
      context->count[0] = 0;
@@ -24,15 +24,15 @@ void MD5Update(MD5_CTX *context,unsigned char *input,unsigned int inputlen)
     if(context->count[0] < (inputlen << 3))
        context->count[1]++;
     context->count[1] += inputlen >> 29;
-
+    
     if(inputlen >= partlen)
     {
        memcpy(&context->buffer[index],input,partlen);
        MD5Transform(context->state,context->buffer);
        for(i = partlen;i+64 <= inputlen;i+=64)
            MD5Transform(context->state,&input[i]);
-       index = 0;
-    }
+       index = 0;        
+    }  
     else
     {
         i = 0;
@@ -55,7 +55,7 @@ void MD5Encode(unsigned char *output,unsigned int *input,unsigned int len)
     unsigned int i = 0,j = 0;
     while(j < len)
     {
-         output[j] = input[i] & 0xFF;
+         output[j] = input[i] & 0xFF;  
          output[j+1] = (input[i] >> 8) & 0xFF;
          output[j+2] = (input[i] >> 16) & 0xFF;
          output[j+3] = (input[i] >> 24) & 0xFF;
@@ -73,7 +73,7 @@ void MD5Decode(unsigned int *output,unsigned char *input,unsigned int len)
                        (input[j+2] << 16) |
                        (input[j+3] << 24);
            i++;
-           j+=4;
+           j+=4; 
      }
 }
 void MD5Transform(unsigned int state[4],unsigned char block[64])
@@ -100,7 +100,7 @@ void MD5Transform(unsigned int state[4],unsigned char block[64])
  FF(d, a, b, c, x[13], 12, 0xfd987193); /* 14 */
  FF(c, d, a, b, x[14], 17, 0xa679438e); /* 15 */
  FF(b, c, d, a, x[15], 22, 0x49b40821); /* 16 */
-
+ 
  /* Round 2 */
  GG(a, b, c, d, x[ 1], 5, 0xf61e2562); /* 17 */
  GG(d, a, b, c, x[ 6], 9, 0xc040b340); /* 18 */
@@ -118,7 +118,7 @@ void MD5Transform(unsigned int state[4],unsigned char block[64])
  GG(d, a, b, c, x[ 2], 9, 0xfcefa3f8); /* 30 */
  GG(c, d, a, b, x[ 7], 14, 0x676f02d9); /* 31 */
  GG(b, c, d, a, x[12], 20, 0x8d2a4c8a); /* 32 */
-
+ 
  /* Round 3 */
  HH(a, b, c, d, x[ 5], 4, 0xfffa3942); /* 33 */
  HH(d, a, b, c, x[ 8], 11, 0x8771f681); /* 34 */
@@ -136,7 +136,7 @@ void MD5Transform(unsigned int state[4],unsigned char block[64])
  HH(d, a, b, c, x[12], 11, 0xe6db99e5); /* 46 */
  HH(c, d, a, b, x[15], 16, 0x1fa27cf8); /* 47 */
  HH(b, c, d, a, x[ 2], 23, 0xc4ac5665); /* 48 */
-
+ 
  /* Round 4 */
  II(a, b, c, d, x[ 0], 6, 0xf4292244); /* 49 */
  II(d, a, b, c, x[ 7], 10, 0x432aff97); /* 50 */

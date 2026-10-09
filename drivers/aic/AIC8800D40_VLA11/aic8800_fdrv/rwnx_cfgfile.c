@@ -236,3 +236,4 @@ int rwnx_parse_phy_configfile(struct rwnx_hw *rwnx_hw, const char *filename,
 
 	return 0;
 }
+

@@ -682,3 +682,4 @@ int	rwnx_plat_userconfig_load_8800dw(struct rwnx_hw *rwnx_hw){
     return 0;
 
 }
+

@@ -376,14 +376,14 @@ static int rwnx_send_msg(struct rwnx_hw *rwnx_hw, const void *msg_params,
 			spin_unlock_bh(&rwnx_hw->cmd_mgr->lock);
 			if(!empty) {
 				if(in_softirq()) {
-				printk("in_softirq:check cmdqueue empty\n");
+        				printk("in_softirq:check cmdqueue empty\n");
 					mdelay(10);
 				}
 				else {
-				printk("check cmdqueue empty\n");
+        				printk("check cmdqueue empty\n");
 					msleep(50);
 				}
-		}
+             		}
 		} while	(!empty);//wait for cmd queue empty
 	}
 #endif
@@ -1032,7 +1032,7 @@ int rwnx_send_rf_config_req(struct rwnx_hw *rwnx_hw, u8_l ofst, u8_l sel, u8_l *
 extern char aic_fw_path[FW_PATH_MAX_LEN_RF];
 
 int rwnx_rf_write_file(void *buf, int buf_len)
-{
+{	
 	int sum = 0, len = 0;
     char *path = NULL;
     struct file *fp = NULL;
@@ -1040,7 +1040,7 @@ int rwnx_rf_write_file(void *buf, int buf_len)
 #if LINUX_VERSION_CODE <= KERNEL_VERSION(5, 10, 0)
 	mm_segment_t fs;
 #endif
-
+	
 	AICWFDBG(LOGINFO, "%s\n", __func__);
     path = __getname();
     if (!path) {
@@ -1050,7 +1050,7 @@ int rwnx_rf_write_file(void *buf, int buf_len)
 
 	len = snprintf(path, FW_PATH_MAX_LEN_RF, "%s/%s", aic_fw_path, FW_RF_CALIB_FILE);
 	AICWFDBG(LOGINFO, "%s: path=%s\n", __func__,path);
-
+	
 	fp = filp_open(path, O_RDWR | O_CREAT, 0644);
 	if (IS_ERR(fp)) {
 	  AICWFDBG(LOGINFO, "fp open fial\n");
@@ -1063,13 +1063,13 @@ int rwnx_rf_write_file(void *buf, int buf_len)
 	fs = get_fs();
 	set_fs(KERNEL_DS);
 #endif
-
+	  
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0)
 	sum = kernel_write(fp, buf, buf_len, &pos);
 #else LINUX_VERSION_CODE >= KERNEL_VERSION(3, 9, 0)
 	sum = kernel_write(fp, (char *)buf, buf_len, pos);
 #endif
-
+	  
 #if LINUX_VERSION_CODE <= KERNEL_VERSION(5, 10, 0)
 	set_fs(fs);
 #endif
@@ -1079,7 +1079,7 @@ int rwnx_rf_write_file(void *buf, int buf_len)
 	fp = NULL;
 
     return 0;
-
+	  
 }
 
 int is_file_exist_rf(char* name)
@@ -1114,9 +1114,9 @@ int rwnx_send_rf_calib_req(struct rwnx_hw *rwnx_hw, struct mm_set_rf_calib_cfm *
 {
 	xtal_cap_conf_t xtal_cap = {0,};
 	int error;
-
+	
 	RWNX_DBG(RWNX_FN_ENTRY_STR);
-
+	
 	if(rwnx_hw->sdiodev->chipid == PRODUCT_ID_AIC8800D80X2)
 	{
 		struct mm_set_rf_calib_req_v2 *rf_calib_req;
@@ -1131,14 +1131,14 @@ int rwnx_send_rf_calib_req(struct rwnx_hw *rwnx_hw, struct mm_set_rf_calib_cfm *
 	    }
 
 	    if (rwnx_hw->sdiodev->chipid == PRODUCT_ID_AIC8801){
-	rf_calib_req->cal_cfg_24g = 0xbf;
-	rf_calib_req->cal_cfg_5g = 0x3f;
+	    	rf_calib_req->cal_cfg_24g = 0xbf;
+	    	rf_calib_req->cal_cfg_5g = 0x3f;
 	    } else if (rwnx_hw->sdiodev->chipid == PRODUCT_ID_AIC8800DC || rwnx_hw->sdiodev->chipid == PRODUCT_ID_AIC8800DW) {
 	        rf_calib_req->cal_cfg_24g = 0x0f8f;
 	        rf_calib_req->cal_cfg_5g = 0;
 	    } else if (rwnx_hw->sdiodev->chipid == PRODUCT_ID_AIC8800D80 || rwnx_hw->sdiodev->chipid == PRODUCT_ID_AIC8800D80X2) {
-	rf_calib_req->cal_cfg_24g = 0x0f8f;
-	rf_calib_req->cal_cfg_5g = 0x0f0f;
+	    	rf_calib_req->cal_cfg_24g = 0x0f8f;
+	    	rf_calib_req->cal_cfg_5g = 0x0f0f;
 	    }else if(rwnx_hw->sdiodev->chipid == PRODUCT_ID_AIC8800D80N ||
 			rwnx_hw->sdiodev->chipid == PRODUCT_ID_AIC8800D80WN){
 	        rf_calib_req->cal_cfg_24g = 0x0f8f;
@@ -1159,7 +1159,7 @@ int rwnx_send_rf_calib_req(struct rwnx_hw *rwnx_hw, struct mm_set_rf_calib_cfm *
 	        rf_calib_req->xtal_cap = 0;
 	        rf_calib_req->xtal_cap_fine = 0;
 	    }
-
+		
 #ifdef RF_WRITE_FILE
 		if(is_file_exist_rf(FW_RF_CALIB_FILE) == 1)
 		{
@@ -1169,20 +1169,20 @@ int rwnx_send_rf_calib_req(struct rwnx_hw *rwnx_hw, struct mm_set_rf_calib_cfm *
 			int size = 0, len = 0;// i = 0;
 			ssize_t rdlen = 0;
 			unsigned char decrypt[16];
-			//u32 **fw_buf =NULL;
+			//u32 **fw_buf =NULL; 
 			//struct kstat stat;
-
-
+		
+		
 			AICWFDBG(LOGINFO, "%s: file exist in\n", __func__);
 			path = __getname();
-			if (!path)
+			if (!path) 
 			{
 				return -1;
 			}
 			len = snprintf(path, FW_PATH_MAX_LEN_RF, "%s/%s", aic_fw_path, FW_RF_CALIB_FILE);
 			AICWFDBG(LOGINFO, "%s: path=%s\n", __func__,path);
 
-			if (len >= FW_PATH_MAX_LEN_RF)
+			if (len >= FW_PATH_MAX_LEN_RF) 
 			{
 				AICWFDBG(LOGERROR, "%s: %s file's path too long\n", __func__, FW_RF_CALIB_FILE);
 				__putname(path);
@@ -1190,7 +1190,7 @@ int rwnx_send_rf_calib_req(struct rwnx_hw *rwnx_hw, struct mm_set_rf_calib_cfm *
 			}
 
 			fp = filp_open(path, O_RDONLY, 0);
-			if (IS_ERR_OR_NULL(fp))
+			if (IS_ERR_OR_NULL(fp)) 
 			{
 				AICWFDBG(LOGERROR, "%s: %s file failed to open\n", __func__, FW_RF_CALIB_FILE);
 				__putname(path);
@@ -1202,7 +1202,7 @@ int rwnx_send_rf_calib_req(struct rwnx_hw *rwnx_hw, struct mm_set_rf_calib_cfm *
 			size =(int)fp->f_inode->i_size;
 			AICWFDBG(LOGINFO, "%s: file is %d bytes\n", __func__,size);
 			buffer = vmalloc(size);
-			if (!buffer)
+			if (!buffer) 
 			{
 				__putname(path);
 				filp_close(fp, NULL);
@@ -1216,8 +1216,8 @@ int rwnx_send_rf_calib_req(struct rwnx_hw *rwnx_hw, struct mm_set_rf_calib_cfm *
 			rdlen = kernel_read(fp, fp->f_pos, buffer, size);
 		#endif
 			//rwnx_data_dump("cal_res.res_data",buffer,size);
-
-			if (size != rdlen)
+			
+			if (size != rdlen) 
 			{
 			   AICWFDBG(LOGERROR, "%s: %s file rdlen invalid %d\n", __func__, FW_RF_CALIB_FILE, (int)rdlen);
 			   __putname(path);
@@ -1227,12 +1227,12 @@ int rwnx_send_rf_calib_req(struct rwnx_hw *rwnx_hw, struct mm_set_rf_calib_cfm *
 			   buffer = NULL;
 			   return -5;
 			}
-
-			if (rdlen > 0)
+			
+			if (rdlen > 0) 
 			{
 			   fp->f_pos += rdlen;
 			}
-
+			
 			__putname(path);
 			filp_close(fp, NULL);
 			fp = NULL;
@@ -1244,7 +1244,7 @@ int rwnx_send_rf_calib_req(struct rwnx_hw *rwnx_hw, struct mm_set_rf_calib_cfm *
 				rf_calib_req->cal_res.magic_num = DRIVER_SET_WIFI_CALRES_MAGIC_NUM;
 				rf_calib_req->cal_res.info_flag = 0x4F;
 				rf_calib_req->cal_res.calib_flag = 0x00;
-				// before req, write testmode rf calib reg->cal res.res_data[], data read from file
+				// before req, write testmode rf calib reg->cal res.res_data[], data read from file 	
 			}
 			else
 			{
@@ -1263,20 +1263,20 @@ int rwnx_send_rf_calib_req(struct rwnx_hw *rwnx_hw, struct mm_set_rf_calib_cfm *
 			rf_calib_req->cal_res.info_flag = 0x00;
 			rf_calib_req->cal_res.calib_flag = 0x4F;
 			// after req, read mm_set_rf_calib_cfm.cal_res.res data[]
-			// save the data into file
+			// save the data into file		
 		}
 		/* Send the MM_SET_RF_CALIB_REQ message to UMAC FW */
 		error = rwnx_send_msg(rwnx_hw, rf_calib_req, 1, MM_SET_RF_CALIB_CFM, &cfm2);
 
 #ifdef RF_WRITE_FILE
 		if(is_file_exist_rf(FW_RF_CALIB_FILE) != 1)
-		{
+		{	
 			void *buffer = NULL;
 			int buf_len = sizeof(cfm2.cal_res.res_data);
-
+			
 			AICWFDBG(LOGINFO, "%s: file not exist in2,buf_len=%d\n", __func__,buf_len);
 			buffer = vmalloc(buf_len);
-			if (!buffer)
+			if (!buffer) 
 			{
 				return -4;
 			}
@@ -1287,12 +1287,12 @@ int rwnx_send_rf_calib_req(struct rwnx_hw *rwnx_hw, struct mm_set_rf_calib_cfm *
 		}
 #endif
 		cfm->rxgain_24g_addr	= 	cfm2.rxgain_24g_addr;
-	cfm->rxgain_5g_addr 	= 	cfm2.rxgain_5g_addr;
-	cfm->txgain_24g_addr 	= 	cfm2.txgain_24g_addr;
-	cfm->txgain_5g_addr		=	cfm2.txgain_5g_addr;
+    	cfm->rxgain_5g_addr 	= 	cfm2.rxgain_5g_addr;
+    	cfm->txgain_24g_addr 	= 	cfm2.txgain_24g_addr;
+    	cfm->txgain_5g_addr		=	cfm2.txgain_5g_addr;	
 	}
 	else
-	{
+	{		
 		struct mm_set_rf_calib_req *rf_calib_req;
 		/* Build the MM_SET_P2P_NOA_REQ message */
 		rf_calib_req = rwnx_msg_zalloc(MM_SET_RF_CALIB_REQ, TASK_MM, DRV_TASK_ID,
@@ -1303,8 +1303,8 @@ int rwnx_send_rf_calib_req(struct rwnx_hw *rwnx_hw, struct mm_set_rf_calib_cfm *
 		}
 
 		if (rwnx_hw->sdiodev->chipid == PRODUCT_ID_AIC8801){
-	rf_calib_req->cal_cfg_24g = 0xbf;
-	rf_calib_req->cal_cfg_5g = 0x3f;
+	    	rf_calib_req->cal_cfg_24g = 0xbf;
+	    	rf_calib_req->cal_cfg_5g = 0x3f;
 	    } else if (rwnx_hw->sdiodev->chipid == PRODUCT_ID_AIC8800DC || rwnx_hw->sdiodev->chipid == PRODUCT_ID_AIC8800DW) {
 	        rf_calib_req->cal_cfg_24g = 0x0f8f;
 	        rf_calib_req->cal_cfg_5g = 0;
@@ -1312,8 +1312,8 @@ int rwnx_send_rf_calib_req(struct rwnx_hw *rwnx_hw, struct mm_set_rf_calib_cfm *
 			rwnx_hw->sdiodev->chipid == PRODUCT_ID_AIC8800D80N ||
 			rwnx_hw->sdiodev->chipid == PRODUCT_ID_AIC8800D80WN ||
 			rwnx_hw->sdiodev->chipid == PRODUCT_ID_AIC8800D80X2) {
-	rf_calib_req->cal_cfg_24g = 0x0f8f;
-	rf_calib_req->cal_cfg_5g = 0x0f0f;
+	    	rf_calib_req->cal_cfg_24g = 0x0f8f;
+	    	rf_calib_req->cal_cfg_5g = 0x0f0f;
 	    }
 
 		rf_calib_req->param_alpha = 0x0c34c008;
@@ -1667,7 +1667,7 @@ int rwnx_send_vendor_hwconfig_req(struct rwnx_hw *rwnx_hw, uint32_t hwconfig_id,
                 /* Send the MM_SET_VENDOR_HWCONFIG_CFM  message to UMAC FW */
                 error = rwnx_send_msg(rwnx_hw, req5, 1, MM_SET_VENDOR_HWCONFIG_CFM, NULL);
 
-		break;
+ 		break;
 	    default:
 		return -ENOMEM;
 	}
@@ -3186,7 +3186,7 @@ int rwnx_send_me_chan_config_req(struct rwnx_hw *rwnx_hw, char *ccode)
 			req->chan2G4[req->chan2G4_cnt].tx_power = chan_to_fw_pwr(b->channels[i].max_power);
 #ifdef CONFIG_POWER_LIMIT
 			{
-			if(performance_power_flag){
+    			if(performance_power_flag){
                     max_pwr = 30;
                 }else{
 				max_pwr = get_powerlimit_by_freq(PHY_BAND_2G4, req->chan2G4[req->chan2G4_cnt].freq, r_idx);

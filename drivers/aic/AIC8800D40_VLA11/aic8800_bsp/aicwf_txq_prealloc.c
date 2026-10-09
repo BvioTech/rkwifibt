@@ -27,7 +27,7 @@ void *aicwf_prealloc_txq_alloc(size_t size)
             kfree(prealloc_txq.txq);
             prealloc_txq.txq = NULL;
         }
-
+        
         prealloc_txq.size = size;
         prealloc_txq.prealloced = 0;
     }
@@ -59,3 +59,4 @@ void aicwf_prealloc_txq_free(void)
 }
 
 EXPORT_SYMBOL(aicwf_prealloc_txq_alloc);
+

@@ -439,9 +439,9 @@ static int __init aicbsp_init(void)
 	aicbsp_info.cpmode = testmode;
 
 	aicbsp_resv_mem_init();
-
+    
     sema_init(&aicbsp_probe_semaphore, 0);
-
+    
 	ret = platform_driver_register(&aicbsp_driver);
 	if (ret) {
 		pr_err("register platform driver failed: %d\n", ret);
@@ -475,7 +475,7 @@ static void __exit aicbsp_exit(void)
 {
 #if defined CONFIG_PLATFORM_ROCKCHIP || defined CONFIG_PLATFORM_ROCKCHIP2
     if(aicbsp_sdiodev){
-	aicbsp_sdio_exit();
+    	aicbsp_sdio_exit();
     }
 #endif
 	sysfs_remove_group(&(aicbsp_pdev->dev.kobj), &aicbsp_attribute_group);

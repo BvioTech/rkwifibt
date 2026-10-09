@@ -30,3 +30,4 @@ typedef struct _compat_android_wifi_priv_cmd {
 int android_priv_cmd(struct net_device *net, struct ifreq *ifr, int cmd);
 
 #endif /* _AIC_PRIV_CMD_H_ */
+

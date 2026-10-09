@@ -91,3 +91,4 @@ void rwnx_pci_unregister_drv(void)
 {
 	pci_unregister_driver(&rwnx_pci_drv);
 }
+

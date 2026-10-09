@@ -994,8 +994,8 @@ static inline int rwnx_rx_sm_connect_ind(struct rwnx_hw *rwnx_hw,
 			rwnx_external_auth_disable(rwnx_vif);
         }else{
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 12, 0)
-		struct cfg80211_roam_info info;
-		memset(&info, 0, sizeof(info));
+    		struct cfg80211_roam_info info;
+    		memset(&info, 0, sizeof(info));
 #if LINUX_VERSION_CODE >= HIGH_KERNEL_VERSION
             if (rwnx_vif->ch_index < NX_CHAN_CTXT_CNT)
                     info.links[0].channel = rwnx_hw->chanctx_table[rwnx_vif->ch_index].chan_def.chan;
@@ -1005,27 +1005,27 @@ static inline int rwnx_rx_sm_connect_ind(struct rwnx_hw *rwnx_hw,
                     info.channel = rwnx_hw->chanctx_table[rwnx_vif->ch_index].chan_def.chan;
             info.bssid = (const u8 *)ind->bssid.array;
 #endif
-		info.req_ie = req_ie;
-		info.req_ie_len = ind->assoc_req_ie_len;
-		info.resp_ie = rsp_ie;
-		info.resp_ie_len = ind->assoc_rsp_ie_len;
-		cfg80211_roamed(dev, &info, GFP_ATOMIC);
+    		info.req_ie = req_ie;
+    		info.req_ie_len = ind->assoc_req_ie_len;
+    		info.resp_ie = rsp_ie;
+    		info.resp_ie_len = ind->assoc_rsp_ie_len;
+    		cfg80211_roamed(dev, &info, GFP_ATOMIC);
 #else
-		chan = ieee80211_get_channel(rwnx_hw->wiphy, ind->center_freq);
-		cfg80211_roamed(dev
+    		chan = ieee80211_get_channel(rwnx_hw->wiphy, ind->center_freq);
+    		cfg80211_roamed(dev
 #if LINUX_VERSION_CODE > KERNEL_VERSION(2, 6, 39) || defined(COMPAT_KERNEL_RELEASE)
-			, chan
+    			, chan
 #endif
-			, (const u8 *)ind->bssid.array
-			, req_ie
-			, ind->assoc_req_ie_len
-			, rsp_ie
-			, ind->assoc_rsp_ie_len
-			, GFP_ATOMIC);
+    			, (const u8 *)ind->bssid.array
+    			, req_ie
+    			, ind->assoc_req_ie_len
+    			, rsp_ie
+    			, ind->assoc_rsp_ie_len
+    			, GFP_ATOMIC);
 
 #endif /*LINUX_VERSION_CODE >= KERNEL_VERSION(4, 12, 0)*/
 			rwnx_set_conn_state(rwnx_vif, &rwnx_vif->drv_conn_state, (int)RWNX_DRV_STATUS_CONNECTED);
-	}
+    	}
         rwnx_vif->sta.is_roam = false;
 	}
 
@@ -1692,3 +1692,4 @@ void rwnx_rx_handle_print(struct rwnx_hw *rwnx_hw, u8 *msg, u32 len)
 	spin_unlock_bh(&rwnx_hw->debugfs.fw_log.lock);
 #endif
 }
+

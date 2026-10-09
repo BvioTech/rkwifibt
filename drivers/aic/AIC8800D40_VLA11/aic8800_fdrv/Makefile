@@ -3,6 +3,8 @@ EXTRA_CFLAGS += -Wno-implicit-fallthrough
 #EXTRA_CFLAGS += -Wno-unused-function
 #EXTRA_CFLAGS += -Wno-maybe-uninitialized
 #EXTRA_CFLAGS += -Wno-unused-variable
+EXTRA_CFLAGS += -Wno-declaration-after-statement
+EXTRA_CFLAGS += -w
 
 RWNX_VERS_NUM := 6.4.3.0
 
@@ -432,3 +434,5 @@ uninstall:
 
 clean:
 	rm -rf *.o *.ko *.o.* *.mod.* modules.* Module.* .a* .o* .*.o.* *.mod .tmp* .cache.mk
+
+

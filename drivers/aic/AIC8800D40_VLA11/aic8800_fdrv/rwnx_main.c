@@ -149,7 +149,7 @@ extern char country_code[];
 	.ppe_thres = {0x08, 0x1c, 0x07},                            \
 }
 #else
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 19, 0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 19, 0)|| defined(CONFIG_HE_FOR_OLD_KERNEL)
 #define RWNX_HE_CAPABILITIES                                    \
 {                                                               \
 	.has_he = false,                                            \
@@ -535,8 +535,7 @@ static const int rwnx_hwq2uapsd[NL80211_NUM_ACS] = {
 
 
 extern uint8_t scanning;
-/* Keep production boot/console logs quiet; the module parameter can be raised
- * at runtime when detailed AIC tracing is explicitly needed. */
+/* VLA11 production default: keep vendor debug/trace traffic disabled. */
 int aicwf_dbg_level = LOGERROR;
 module_param(aicwf_dbg_level, int, 0660);
 #ifdef CONFIG_DYNAMIC_PWR
@@ -2983,14 +2982,14 @@ static int rwnx_cfg80211_del_station_compat(struct wiphy *wiphy,
 	        if ((!mac) || (!memcmp(cur->mac_addr, mac, ETH_ALEN)))  {
 				found = 1;
 				break;
-	}
+	    	}
 	    }
 
 		if(found) {
-		cur->ps.active = false;
-		cur->valid = false;
-		list_del(&cur->list);
-	}
+            		cur->ps.active = false;
+            		cur->valid = false;
+            		list_del(&cur->list);
+        	}
 		spin_unlock_bh(&rwnx_hw->cb_lock);
 
 		if(found) {
@@ -3066,7 +3065,7 @@ static int rwnx_cfg80211_del_station_compat(struct wiphy *wiphy,
 	if(!found && mac != NULL)
 		return -ENOENT;
 	else
-	return 0;
+    	return 0;
 }
 
 
@@ -3109,11 +3108,11 @@ void apm_staloss_work_process(struct work_struct *work)
 			break;
 		}
 	}
-	if(found) {
-	cur->ps.active = false;
-	cur->valid = false;
-	list_del(&cur->list);
-	}
+    	if(found) {
+        	cur->ps.active = false;
+        	cur->valid = false;
+        	list_del(&cur->list);
+    	}
 	spin_unlock_bh(&rwnx_hw->cb_lock);
 
 	if(found) {

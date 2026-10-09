@@ -336,11 +336,11 @@ static int aicwf_vendor_subcmd_set_country_code(struct wiphy *wiphy, struct wire
 		case ANDR_WIFI_ATTRIBUTE_COUNTRY:
 			printk("%s(%d), ANDR_WIFI_ATTRIBUTE_COUNTRY: %s\n", __func__, __LINE__, (char *)nla_data(iter));
             country = (char *)nla_data(iter);
-
-            AICWFDBG(LOGINFO, "%s country code:%c%c\n", __func__,
-                country[0],
+            
+            AICWFDBG(LOGINFO, "%s country code:%c%c\n", __func__, 
+                country[0], 
                 country[1]);
-
+            
             regdomain = getRegdomainFromRwnxDB(rwnx_hw->wiphy, country);
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 0, 0)
             if((ret = regulatory_set_wiphy_regd(rwnx_hw->wiphy, regdomain))){
@@ -1202,7 +1202,7 @@ const struct wiphy_vendor_command aicwf_vendor_cmd[] = {
 		.policy = aicwf_cfg80211_subcmd_set_mac_policy,
 		.maxattr = WIFI_VENDOR_ATTR_DRIVER_MAX,
 #endif
-	},
+    	},
 	{
         {
          .vendor_id = BRCM_OUI,
@@ -1217,7 +1217,7 @@ const struct wiphy_vendor_command aicwf_vendor_cmd[] = {
         .policy = aicwf_cfg80211_subcmd_set_mac_policy,
         .maxattr = WIFI_VENDOR_ATTR_DRIVER_MAX,
 #endif
-	},
+    	},
 #ifdef AICWF_LATENCY_MODE
 	{
 		{

@@ -85,7 +85,7 @@ void rwnx_ps_bh_enable(struct rwnx_hw *rwnx_hw, struct rwnx_sta *sta,
 	if (enable) {
 #ifdef CREATE_TRACE_POINTS
 		trace_ps_enable(sta);
-#endif
+#endif 
 		spin_lock_bh(&rwnx_hw->tx_lock);
 		sta->ps.active = true;
 		sta->ps.sp_cnt[LEGACY_PS_ID] = 0;
@@ -302,7 +302,7 @@ u16 rwnx_select_txq(struct rwnx_vif *rwnx_vif, struct sk_buff *skb)
 	bool tdls_mgmgt_frame = false;
     int nx_bcmc_txq_ndev_idx = NX_BCMC_TXQ_NDEV_IDX;
 
-    if((g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8801) ||
+    if((g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8801) || 
         ((g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8800DC ||
         g_rwnx_plat->sdiodev->chipid == PRODUCT_ID_AIC8800DW) && chip_id < 3)){
             nx_bcmc_txq_ndev_idx = NX_BCMC_TXQ_NDEV_IDX_FOR_OLD_IC;
@@ -1832,7 +1832,7 @@ netdev_tx_t rwnx_start_monitor_if_xmit(struct sk_buff *skb, struct net_device *d
         if (ret) {
             continue;
         }
-        AICWFDBG(LOGDEBUG, "%s iterator.this_arg_index:%d iterator.this_arg:%x\r\n", __func__,
+        AICWFDBG(LOGDEBUG, "%s iterator.this_arg_index:%d iterator.this_arg:%x\r\n", __func__, 
             iterator.this_arg_index, *iterator.this_arg);
         switch (iterator.this_arg_index) {
             case IEEE80211_RADIOTAP_RATE:
@@ -1845,7 +1845,7 @@ netdev_tx_t rwnx_start_monitor_if_xmit(struct sk_buff *skb, struct net_device *d
                         break;
                     }
                 }
-
+                
                 if (idx < HW_RATE_MAX) {
                     rate_idx = idx;
                     AICWFDBG(LOGDEBUG, "rate_idx = %d \r\n", rate_idx);
@@ -2089,9 +2089,9 @@ netdev_tx_t rwnx_start_monitor_if_xmit(struct sk_buff *skb, struct net_device *d
 	#endif
 
     desc->host.hostid = sw_txhdr->dma_addr;
-
+    
     memcpy(desc->host.eth_dest_addr.array, bcast, ETH_ALEN);
-
+    
     spin_lock_bh(&rwnx_hw->tx_lock);
     AICWFDBG(LOGTRACE, "%s send data\r\n", __func__);
     if (rwnx_txq_queue_skb(skb_mgmt, txq, rwnx_hw, false))

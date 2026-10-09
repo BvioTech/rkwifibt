@@ -178,3 +178,4 @@ void rwnx_mu_group_sta_select(struct rwnx_hw *rwnx_hw)
 #endif /* CONFIG_RWNX_MUMIMO_TX */
 
 #endif /* _RWNX_MU_GROUP_H_ */
+

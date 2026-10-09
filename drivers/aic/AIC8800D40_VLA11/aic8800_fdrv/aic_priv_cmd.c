@@ -2059,13 +2059,13 @@ int rwnx_atoi2(char *value, int c_len);
 void set_mon_chan(struct rwnx_vif *vif, char *parameter){
     struct cfg80211_chan_def *chandef = NULL;
     int freq = 0;
-
-
+    
+    
     chandef = (struct cfg80211_chan_def *)vmalloc(sizeof(struct cfg80211_chan_def));
     memset(chandef, 0, sizeof(struct cfg80211_chan_def));
     chandef->chan = (struct ieee80211_channel *)vmalloc(sizeof(struct ieee80211_channel));
     memset(chandef->chan, 0, sizeof(struct ieee80211_channel));
-
+    
     freq = rwnx_atoi2(parameter, 4);
 
     if(freq <= 2484){
@@ -2347,7 +2347,7 @@ int android_priv_cmd(struct net_device *net, struct ifreq *ifr, int cmd)
 			goto exit;
 		}
 		else if(!strncasecmp(command, CMD_SETSUSPENDMODE, strlen(CMD_SETSUSPENDMODE)) && testmode == 0){
-#ifdef AICWF_SDIO_SUPPORT
+#ifdef AICWF_SDIO_SUPPORT           
 #if defined(CONFIG_GPIO_WAKEUP) && !defined(CONFIG_AUTO_POWERSAVE)
 			skip = strlen(CMD_SETSUSPENDMODE) + 1;
 			setsusp_mode = command_strtoul((command + skip), NULL, 10);
@@ -2360,18 +2360,18 @@ int android_priv_cmd(struct net_device *net, struct ifreq *ifr, int cmd)
 			rwnx_send_me_set_lp_level(g_rwnx_plat->sdiodev->rwnx_hw, setsusp_mode, !setsusp_mode);
 #endif
 			#if 0
-			if (setsusp_mode == 1) {
-#if defined(CONFIG_SDIO_PWRCTRL)
-				aicwf_sdio_pwr_stctl(g_rwnx_plat->sdiodev, SDIO_SLEEP_ST);
-#endif
-				ret = aicwf_sdio_writeb(g_rwnx_plat->sdiodev, SDIOWIFI_WAKEUP_REG, 2);
-				if (ret < 0) {
-					sdio_err("reg:%d write failed!\n", SDIOWIFI_WAKEUP_REG);
-				}
-			}
+			if (setsusp_mode == 1) {                
+#if defined(CONFIG_SDIO_PWRCTRL)                
+				aicwf_sdio_pwr_stctl(g_rwnx_plat->sdiodev, SDIO_SLEEP_ST);              
+#endif              
+				ret = aicwf_sdio_writeb(g_rwnx_plat->sdiodev, SDIOWIFI_WAKEUP_REG, 2);              
+				if (ret < 0) {                  
+					sdio_err("reg:%d write failed!\n", SDIOWIFI_WAKEUP_REG);                
+				}           
+			}           
 			#endif
 			AICWFDBG(LOGINFO, "set suspend mode %d\n", setsusp_mode);
-#endif//CONFIG_GPIO_WAKEUP
+#endif//CONFIG_GPIO_WAKEUP  
 #endif
 			goto exit;
 		}
@@ -2415,7 +2415,7 @@ int android_priv_cmd(struct net_device *net, struct ifreq *ifr, int cmd)
 			txpwr_loss->loss_enable_2g4 = 1;
 			txpwr_loss->loss_enable_5g = 1;
 			txpwr_loss->loss_value_2g4 = loss;
-			txpwr_loss->loss_value_5g = loss;
+			txpwr_loss->loss_value_5g = loss; 
 			rwnx_ic_rf_init(vif->rwnx_hw);
 
 			goto exit;
@@ -2446,7 +2446,7 @@ int android_priv_cmd(struct net_device *net, struct ifreq *ifr, int cmd)
                     txpwr_loss->loss_enable_2g4 = 1;
                     txpwr_loss->loss_enable_5g = 1;
                     txpwr_loss->loss_value_2g4 = loss;
-                    txpwr_loss->loss_value_5g = loss;
+                    txpwr_loss->loss_value_5g = loss; 
                     rwnx_send_me_chan_config_req(vif->rwnx_hw, &country_code[0]);
                     break;
             }
@@ -2681,3 +2681,4 @@ exit:
 	Sreturn ret;
 }
 #endif
+

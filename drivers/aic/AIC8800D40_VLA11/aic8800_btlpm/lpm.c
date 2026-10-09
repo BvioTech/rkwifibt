@@ -1108,3 +1108,4 @@ int bluesleep_exit(struct platform_device *dev)
 	bluesleep_remove(dev);
 	return 0;
 }
+
