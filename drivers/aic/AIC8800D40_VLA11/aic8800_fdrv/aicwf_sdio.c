@@ -2633,10 +2633,15 @@ int sdio_bustx_thread(void *data)
 	sched_setaffinity(0, &cpumask);//need to add EXPORT_SYMBOL_GPL(sched_setaffinity) in kernel/sched/core.c
 #endif
 #ifdef CONFIG_TXRX_THREAD_PRIO
-        if (bustx_thread_prio > 0)
+        if (bustx_thread_prio > 0) {
+                int ret = aicwf_set_thread_rt_prio(current, bustx_thread_prio);
+
                 AICWFDBG(LOGINFO, "%s set RT priority %d, ret=%d\n", __func__,
-                         bustx_thread_prio,
-                         aicwf_set_thread_rt_prio(current, bustx_thread_prio));
+                         bustx_thread_prio, ret);
+                if (ret)
+                        AICWFDBG(LOGERROR, "%s RT priority %d failed: %d\n",
+                                 __func__, bustx_thread_prio, ret);
+        }
 #endif
 
     AICWFDBG(LOGINFO, "%s the policy of current thread is:%d\n", __func__, current->policy);
@@ -2760,10 +2765,15 @@ int sdio_busrx_thread(void *data)
 #endif
 #endif
 #ifdef CONFIG_TXRX_THREAD_PRIO
-    if (busrx_thread_prio > 0)
+    if (busrx_thread_prio > 0) {
+        int ret = aicwf_set_thread_rt_prio(current, busrx_thread_prio);
+
         AICWFDBG(LOGINFO, "%s set RT priority %d, ret=%d\n", __func__,
-                 busrx_thread_prio,
-                 aicwf_set_thread_rt_prio(current, busrx_thread_prio));
+                 busrx_thread_prio, ret);
+        if (ret)
+            AICWFDBG(LOGERROR, "%s RT priority %d failed: %d\n",
+                     __func__, busrx_thread_prio, ret);
+    }
 #endif
     
     AICWFDBG(LOGINFO, "%s the policy of current thread is:%d\n", __func__, current->policy);
