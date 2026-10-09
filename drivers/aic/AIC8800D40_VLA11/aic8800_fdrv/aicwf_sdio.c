@@ -2482,14 +2482,37 @@ static int aicwf_sdio_bus_start(struct device *dev)
 #include "linux/sched/rt.h"
 #endif
 
-int bustx_thread_prio = 1;
+int bustx_thread_prio = 99;
 module_param_named(bustx_thread_prio, bustx_thread_prio, int, 0644);
 //module_param(bustx_thread_prio, int, 0);
-int busrx_thread_prio = 1;
+int busrx_thread_prio = 99;
 module_param_named(busrx_thread_prio, busrx_thread_prio, int, 0644);
 //module_param(busrx_thread_prio, int, 0);
 int busirq_thread_prio = 42;
 module_param_named(busirq_thread_prio, busirq_thread_prio, int, 0644);
+
+static int aicwf_set_thread_rt_prio(struct task_struct *task, int priority)
+{
+        priority = clamp(priority, 1, MAX_RT_PRIO - 1);
+
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 9, 0))
+        {
+                struct sched_attr attr = {
+                        .size = sizeof(attr),
+                        .sched_policy = SCHED_FIFO,
+                        .sched_priority = priority,
+                };
+
+                return sched_setattr_nocheck(task, &attr);
+        }
+#else
+        {
+                struct sched_param param = { .sched_priority = priority };
+
+                return sched_setscheduler(task, SCHED_FIFO, &param);
+        }
+#endif
+}
 #endif
 
 
@@ -2589,16 +2612,15 @@ int sdio_busirq_thread(void *data){
 #endif
 int sdio_bustx_thread(void *data)
 {
-	struct aicwf_bus *bus = (struct aicwf_bus *) data;
-	struct aic_sdio_dev *sdiodev = bus->bus_priv.sdio;
-#if 0    
+        struct aicwf_bus *bus = (struct aicwf_bus *) data;
+        struct aic_sdio_dev *sdiodev = bus->bus_priv.sdio;
+#if 1
 #ifdef CONFIG_THREAD_INFO_IN_TASK
     int set_cpu_ret = 0;
 
-    AICWFDBG(LOGINFO, "%s the cpu is:%d\n", __func__, current->cpu);
+    AICWFDBG(LOGINFO, "%s pin thread to cpu:1\n", __func__);
     set_cpu_ret = set_cpus_allowed_ptr(current, cpumask_of(1));
-    AICWFDBG(LOGINFO, "%s set_cpu_ret is:%d\n", __func__, set_cpu_ret);
-    AICWFDBG(LOGINFO, "%s change cpu to:%d\n", __func__, current->cpu);
+    AICWFDBG(LOGINFO, "%s pin cpu:1 ret:%d\n", __func__, set_cpu_ret);
 #endif
 #endif
 
@@ -2611,15 +2633,10 @@ int sdio_bustx_thread(void *data)
 	sched_setaffinity(0, &cpumask);//need to add EXPORT_SYMBOL_GPL(sched_setaffinity) in kernel/sched/core.c
 #endif
 #ifdef CONFIG_TXRX_THREAD_PRIO
-		if (bustx_thread_prio > 0) {
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 9, 0))
-            sched_set_fifo_low(current);
-#else
-            struct sched_param param;
-            param.sched_priority = (bustx_thread_prio < MAX_RT_PRIO)?bustx_thread_prio:(MAX_RT_PRIO-1);
-            sched_setscheduler(current, SCHED_FIFO, &param);
-#endif
-		}
+        if (bustx_thread_prio > 0)
+                AICWFDBG(LOGINFO, "%s set RT priority %d, ret=%d\n", __func__,
+                         bustx_thread_prio,
+                         aicwf_set_thread_rt_prio(current, bustx_thread_prio));
 #endif
 
     AICWFDBG(LOGINFO, "%s the policy of current thread is:%d\n", __func__, current->policy);
@@ -2743,15 +2760,10 @@ int sdio_busrx_thread(void *data)
 #endif
 #endif
 #ifdef CONFIG_TXRX_THREAD_PRIO
-    if (busrx_thread_prio > 0) {
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 9, 0))
-        sched_set_fifo_low(current);
-#else
-        struct sched_param param;
-        param.sched_priority = (busrx_thread_prio < MAX_RT_PRIO)?busrx_thread_prio:(MAX_RT_PRIO-1);
-        sched_setscheduler(current, SCHED_FIFO, &param);
-#endif
-    }
+    if (busrx_thread_prio > 0)
+        AICWFDBG(LOGINFO, "%s set RT priority %d, ret=%d\n", __func__,
+                 busrx_thread_prio,
+                 aicwf_set_thread_rt_prio(current, busrx_thread_prio));
 #endif
     
     AICWFDBG(LOGINFO, "%s the policy of current thread is:%d\n", __func__, current->policy);
@@ -3574,4 +3586,3 @@ void rwnx_deinit_wifi_suspend_node(void){
 	remove_proc_entry("wifi_suspend", 0);
 }
 #endif//CONFIG_WIFI_SUSPEND_FOR_LINUX
-
