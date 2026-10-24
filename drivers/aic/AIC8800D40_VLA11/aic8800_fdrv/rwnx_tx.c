@@ -13,6 +13,7 @@
 
 #include "rwnx_defs.h"
 #include "rwnx_tx.h"
+#include "wifi_diag.h"
 #include "rwnx_msg_tx.h"
 #include "rwnx_mesh.h"
 #include "rwnx_events.h"
@@ -1425,6 +1426,7 @@ netdev_tx_t rwnx_start_xmit(struct sk_buff *skb, struct net_device *dev)
 	struct msg_buf *msgbuf = NULL;
 #endif
 
+	wd_tx_eth(WD_TX_ENTER, skb, dev->ifindex);
 	if(skb->len <= sizeof(struct ethhdr)) {
 	   AICWFDBG(LOGINFO, "len (%d) too short, skip \n", skb->len);
 	   return NETDEV_TX_OK;
@@ -1445,6 +1447,7 @@ netdev_tx_t rwnx_start_xmit(struct sk_buff *skb, struct net_device *dev)
 		if (unlikely(newskb == NULL))
 			goto free;
 
+		wd_tx_copy(skb, newskb);
 		dev_kfree_skb_any(skb);
 
 		skb = newskb;
@@ -1580,6 +1583,7 @@ netdev_tx_t rwnx_start_xmit(struct sk_buff *skb, struct net_device *dev)
 	txhdr->hw_hdr.cfm.status.value = 0;
 
 	if (unlikely(rwnx_prep_tx(rwnx_hw, txhdr))) {
+		wd_tx_eth(WD_TX_DROP_PREP, skb, dev->ifindex);
 		kmem_cache_free(rwnx_hw->sw_txhdr_cache, sw_txhdr);
 		skb_pull(skb, headroom);
 		dev_kfree_skb_any(skb);
@@ -1607,6 +1611,7 @@ netdev_tx_t rwnx_start_xmit(struct sk_buff *skb, struct net_device *dev)
 	return NETDEV_TX_OK;
 
 free:
+	wd_tx_eth(WD_TX_DROP_FREE, skb, dev->ifindex);
 	dev_kfree_skb_any(skb);
 
 	return NETDEV_TX_OK;

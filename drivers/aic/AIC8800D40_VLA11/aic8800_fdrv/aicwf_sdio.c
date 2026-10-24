@@ -19,6 +19,7 @@
 #include "aicwf_sdio.h"
 #include "sdio_host.h"
 #include "rwnx_defs.h"
+#include "wifi_diag.h"
 #include "rwnx_platform.h"
 #include "aicwf_rx_prealloc.h"
 #include "rwnx_msg_tx.h"
@@ -441,6 +442,7 @@ int aicwf_sdio_recv_pkt(struct aic_sdio_dev *sdiodev, struct rx_buff *rxbuff,
     sdio_claim_host(sdiodev->func);
     ret = sdio_readsb(sdiodev->func, rxbuff->data, sdiodev->sdio_reg.rd_fifo_addr, size);
     sdio_release_host(sdiodev->func);
+	wd_bus_rx(ret, size);
 
 	if (ret < 0) {
 		return ret;
@@ -462,6 +464,7 @@ int aicwf_sdio_recv_pkt(struct aic_sdio_dev *sdiodev, struct sk_buff *skbbuf,
     sdio_claim_host(sdiodev->func);
     ret = sdio_readsb(sdiodev->func, skbbuf->data, sdiodev->sdio_reg.rd_fifo_addr, size);
     sdio_release_host(sdiodev->func);
+	wd_bus_rx(ret, size);
 
 	if (ret < 0) {
 		return ret;
@@ -2053,6 +2056,7 @@ static int aicwf_sdio_bus_txdata(struct device *dev, struct sk_buff *pkt)
 
     if (bus_if->state == BUS_DOWN_ST) {
         sdio_err("bus_if stopped\n");
+		wd_tx_host(WD_SDIO_BUS_DOWN, pkt, 0, 0, -1, true);
         txhdr = (struct rwnx_txhdr *)pkt->data;
         headroom = txhdr->sw_hdr->headroom;
         kmem_cache_free(txhdr->sw_hdr->rwnx_vif->rwnx_hw->sw_txhdr_cache, txhdr->sw_hdr);
@@ -2064,6 +2068,7 @@ static int aicwf_sdio_bus_txdata(struct device *dev, struct sk_buff *pkt)
     prio = (pkt->priority & 0x7);
     spin_lock_bh(&sdiodev->tx_priv->txqlock);
     if (!aicwf_frame_enq(sdiodev->dev, &sdiodev->tx_priv->txq, pkt, prio)) {
+		wd_tx_host(WD_SDIO_QUEUE_FULL, pkt, sdiodev->tx_priv->txq.qcnt, sdiodev->tx_priv->txq.qmax, -ENOSR, true);
         txhdr = (struct rwnx_txhdr *)pkt->data;
         headroom = txhdr->sw_hdr->headroom;
         kmem_cache_free(txhdr->sw_hdr->rwnx_vif->rwnx_hw->sw_txhdr_cache, txhdr->sw_hdr);
@@ -2073,6 +2078,7 @@ static int aicwf_sdio_bus_txdata(struct device *dev, struct sk_buff *pkt)
         return -ENOSR;
 		goto flowctrl;
     } else {
+	wd_tx_host(WD_SDIO_ENQUEUE, pkt, sdiodev->tx_priv->txq.qcnt, sdiodev->tx_priv->txq.qmax, 0, false);
 	ret = 0;
     }
 
@@ -2179,6 +2185,7 @@ int aicwf_sdio_send(struct aicwf_tx_priv *tx_priv, u8 txnow)
 			return 0;
 		}
 		//atomic_dec(&sdiodev->tx_priv->tx_pktcnt);
+		wd_tx_host(WD_SDIO_DEQUEUE, pkt, sdiodev->tx_priv->txq.qcnt, sdiodev->tx_priv->txq.qmax, 0, false);
 		spin_unlock_bh(&sdiodev->tx_priv->txqlock);
 
 #ifdef CONFIG_TX_NETIF_FLOWCTRL
@@ -2222,6 +2229,7 @@ int aicwf_sdio_send(struct aicwf_tx_priv *tx_priv, u8 txnow)
 
 int aicwf_sdio_aggr(struct aicwf_tx_priv *tx_priv, struct sk_buff *pkt)
 {
+	struct wd_packet wd_ticket;
 #ifdef CONFIG_SDIO_ADMA
 	u8 adj_len = 0;
 	struct rwnx_txhdr *txhdr = (struct rwnx_txhdr *)pkt->data;
@@ -2233,6 +2241,7 @@ int aicwf_sdio_aggr(struct aicwf_tx_priv *tx_priv, struct sk_buff *pkt)
 	u32 pkt_len = 0;
 	struct txdesc_api tmp_txdesc;
 	struct sk_buff *tmp_skb;
+	wd_take(pkt, &wd_ticket);
 
 	//AICWFDBG(LOGTRACE,"%s \n",__func__);
 	//pkt (txhdr + data),aggr only need txhdr->sw_hdr->desc and data
@@ -2292,6 +2301,7 @@ int aicwf_sdio_aggr(struct aicwf_tx_priv *tx_priv, struct sk_buff *pkt)
 	int allign_len = 0;
 	int headroom;
 
+	wd_take(pkt, &wd_ticket);
 	sdio_header[0] = ((pkt->len - txhdr->sw_hdr->headroom + sizeof(struct txdesc_api)) & 0xff);
 	sdio_header[1] = (((pkt->len - txhdr->sw_hdr->headroom + sizeof(struct txdesc_api)) >> 8)&0x0f);
 	sdio_header[2] = 0x01; //data
@@ -2337,6 +2347,7 @@ int aicwf_sdio_aggr(struct aicwf_tx_priv *tx_priv, struct sk_buff *pkt)
 
 	atomic_inc(&tx_priv->aggr_count);
 #endif /* CONFIG_SDIO_ADMA */
+	wd_batch_add(tx_priv, &wd_ticket);
 
 	return 0;
 }
@@ -2368,7 +2379,9 @@ void aicwf_sdio_aggr_send(struct aicwf_tx_priv *tx_priv)
 		}
 	}*/
 
+	wd_batch_io(tx_priv, WD_SDIO_WRITE_BEGIN, 0, tx_priv->len);
 	ret = aicwf_sdio_txscatterpkt(tx_priv);
+	wd_batch_io(tx_priv, WD_SDIO_WRITE_END, ret, tx_priv->len);
 	if (ret < 0) {
 		sdio_err("fail to send scatter pkt %d !\n",ret);
 	}
@@ -2387,7 +2400,9 @@ void aicwf_sdio_aggr_send(struct aicwf_tx_priv *tx_priv)
 	}
 
 	tx_buf->len = tx_priv->tail - tx_priv->head;
+	wd_batch_io(tx_priv, WD_SDIO_WRITE_BEGIN, 0, tx_buf->len);
 	ret = aicwf_sdio_txpkt(tx_priv->sdiodev, tx_buf);
+	wd_batch_io(tx_priv, WD_SDIO_WRITE_END, ret, tx_buf->len);
 	if (ret < 0) {
 		sdio_err("fail to send aggr pkt!\n");
 	}
@@ -2398,6 +2413,7 @@ void aicwf_sdio_aggr_send(struct aicwf_tx_priv *tx_priv)
 
 void aicwf_sdio_aggrbuf_reset(struct aicwf_tx_priv *tx_priv)
 {
+	wd_batch_reset(tx_priv);
 #ifdef CONFIG_SDIO_ADMA
 	struct sk_buff *scatter_buf;
 	int i = 0;

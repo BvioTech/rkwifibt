@@ -11,6 +11,7 @@
  */
 
 #include "rwnx_msg_tx.h"
+#include "wifi_diag.h"
 #include "rwnx_mod_params.h"
 #include "reg_access.h"
 #ifdef CONFIG_RWNX_BFMER
@@ -321,6 +322,7 @@ static int rwnx_send_msg(struct rwnx_hw *rwnx_hw, const void *msg_params,
 #ifdef AICWF_SDIO_SUPPORT
 	rwnx_wakeup_lock(rwnx_hw->ws_tx);
 	if (rwnx_hw->sdiodev->bus_if->state == BUS_DOWN_ST) {
+		wd_cmd(WD_CMD_BUS_DOWN, reqid, 0, -ENETDOWN, 0);
 		rwnx_msg_free(rwnx_hw, msg_params);
 		sdio_err("bus is down\n");
 		rwnx_wakeup_unlock(rwnx_hw->ws_tx);
@@ -389,7 +391,9 @@ static int rwnx_send_msg(struct rwnx_hw *rwnx_hw, const void *msg_params,
 #endif
 	if (reqcfm) {
 		cmd->flags &= ~RWNX_CMD_FLAG_WAIT_ACK; // we don't need ack any more
+		wd_cmd(WD_CMD_ENTER, reqid, 0, 0, 0);
 		ret = rwnx_hw->cmd_mgr->queue(rwnx_hw->cmd_mgr, cmd);
+		wd_cmd(WD_CMD_QUEUE_RETURN, reqid, 0, ret, 0);
 	} else {
 #ifdef AICWF_SDIO_SUPPORT
 		aicwf_set_cmd_tx((void *)(rwnx_hw->sdiodev), cmd->a2e_msg, sizeof(struct lmac_msg) + cmd->a2e_msg->param_len);
@@ -677,6 +681,7 @@ int rwnx_send_key_add(struct rwnx_hw *rwnx_hw, u8 vif_idx, u8 sta_idx, bool pair
 #endif
 
 	/* Send the MM_KEY_ADD_REQ message to LMAC FW */
+	wd_conn(WD_KEY_ADD_REQ, 0, NULL, 0, vif_idx, (pairwise << 8) | key_idx);
 	return rwnx_send_msg(rwnx_hw, key_add_req, 1, MM_KEY_ADD_CFM, cfm);
 }
 
@@ -696,6 +701,7 @@ int rwnx_send_key_del(struct rwnx_hw *rwnx_hw, uint8_t hw_key_idx)
 	key_del_req->hw_key_idx = hw_key_idx;
 
 	/* Send the MM_KEY_DEL_REQ message to LMAC FW */
+	wd_conn(WD_KEY_DEL_REQ, 0, NULL, 0, hw_key_idx, 0);
 	return rwnx_send_msg(rwnx_hw, key_del_req, 1, MM_KEY_DEL_CFM, NULL);
 }
 
@@ -3265,6 +3271,7 @@ int rwnx_send_me_set_control_port_req(struct rwnx_hw *rwnx_hw, bool opened, u8 s
 	req->control_port_open = opened;
 
 	/* Send the ME_SET_CONTROL_PORT_REQ message to LMAC FW */
+	wd_conn(WD_CONTROL_PORT_REQ, 0, NULL, 0, opened, sta_idx);
 	return rwnx_send_msg(rwnx_hw, req, 1, ME_SET_CONTROL_PORT_CFM, NULL);
 }
 
@@ -3560,6 +3567,7 @@ int rwnx_send_me_set_ps_mode(struct rwnx_hw *rwnx_hw, u8 ps_mode)
 
 	/* Set parameters for the ME_SET_PS_MODE_REQ message */
 	req->ps_state = ps_mode;
+	wd_conn(WD_PS_MODE_REQ, 0, NULL, 0, ps_mode, 0);
 
 	/* Send the ME_SET_PS_MODE_REQ message to FW */
 	return rwnx_send_msg(rwnx_hw, req, 1, ME_SET_PS_MODE_CFM, NULL);
@@ -3581,6 +3589,7 @@ int rwnx_send_me_set_lp_level(struct rwnx_hw *rwnx_hw, u8 lp_level, u8 disable_f
 	/* Set parameters for the ME_SET_LP_LEVEL_REQ message */
 	req->lp_level = lp_level;
 	req->disable_filter = disable_filter;
+	wd_conn(WD_LP_LEVEL_REQ, 0, NULL, 0, lp_level, disable_filter);
 	/* Send the ME_SET_LP_LEVEL_REQ message to FW */
 	return rwnx_send_msg(rwnx_hw, req, 1, ME_SET_LP_LEVEL_CFM, NULL);
 }
@@ -3704,6 +3713,7 @@ int rwnx_send_sm_connect_req(struct rwnx_hw *rwnx_hw,
 		req->auth_type);
 
 	/* Send the SM_CONNECT_REQ message to LMAC FW */
+	wd_conn(WD_CONNECT_REQ, rwnx_vif->ndev->ifindex, sme->bssid, req->chan.freq, 0, req->auth_type);
 	return rwnx_send_msg(rwnx_hw, req, 1, SM_CONNECT_CFM, cfm);
 
 invalid_param:
@@ -3730,6 +3740,7 @@ int rwnx_send_sm_disconnect_req(struct rwnx_hw *rwnx_hw,
 	req->vif_idx = rwnx_vif->vif_index;
 
 	/* Send the SM_DISCONNECT_REQ message to LMAC FW */
+	wd_conn(WD_HOST_DISCONNECT_REQ, rwnx_vif->ndev->ifindex, NULL, 0, reason, 0);
 	return rwnx_send_msg(rwnx_hw, req, 1, SM_DISCONNECT_CFM, NULL);
 }
 

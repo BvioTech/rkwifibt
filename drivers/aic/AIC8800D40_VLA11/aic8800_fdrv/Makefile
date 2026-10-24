@@ -203,6 +203,7 @@ $(MODULE_NAME)-$(CONFIG_BR_SUPPORT)       += aic_br_ext.o
 $(MODULE_NAME)-$(CONFIG_RWNX_RADAR)       += rwnx_radar.o
 $(MODULE_NAME)-$(CONFIG_DEBUG_FS)         += rwnx_debugfs.o
 $(MODULE_NAME)-$(CONFIG_DEBUG_FS)         += rwnx_fw_trace.o
+$(MODULE_NAME)-$(CONFIG_DEBUG_FS)         += wifi_diag.o
 $(MODULE_NAME)-$(CONFIG_NL80211_TESTMODE) += rwnx_testmode.o
 $(MODULE_NAME)-$(CONFIG_RWNX_BFMER)       += rwnx_bfmer.o
 $(MODULE_NAME)-$(CONFIG_RWNX_MUMIMO_TX)   += rwnx_mu_group.o

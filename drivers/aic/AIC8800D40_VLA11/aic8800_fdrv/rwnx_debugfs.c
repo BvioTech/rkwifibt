@@ -22,6 +22,7 @@
 #include "rwnx_msg_tx.h"
 #include "rwnx_radar.h"
 #include "rwnx_tx.h"
+#include "wifi_diag.h"
 
 #ifdef CONFIG_DEBUG_FS
 #ifdef CONFIG_RWNX_FULLMAC
@@ -2583,6 +2584,7 @@ int rwnx_dbgfs_register(struct rwnx_hw *rwnx_hw, const char *name)
 		return -ENOMEM;
 
 	rwnx_debugfs->dir = dir_drv;
+	wd_init(dir_drv);
 	rwnx_debugfs->unregistering = false;
 
 	dir_diags = debugfs_create_dir("diags", dir_drv);
@@ -2677,6 +2679,7 @@ void rwnx_dbgfs_unregister(struct rwnx_hw *rwnx_hw)
 	struct rwnx_rc_config_save *cfg, *next;
 #endif
 
+	wd_exit();
 #ifdef CONFIG_RWNX_FULLMAC
 	list_for_each_entry_safe(cfg, next, &rwnx_debugfs->rc_config_save, list) {
 		list_del(&cfg->list);

@@ -25,6 +25,7 @@
 #include "rwnx_compat.h"
 #include "aicwf_txrxif.h"
 #include "rwnx_msg_rx.h"
+#include "wifi_diag.h"
 #ifdef CONFIG_SDIO_BT
 #include "aic_btsdio.h"
 #endif
@@ -847,6 +848,7 @@ static inline int rwnx_rx_sm_connect_ind(struct rwnx_hw *rwnx_hw,
 	rsp_ie = req_ie + ind->assoc_req_ie_len;
 
     // Fill-in the AP information
+	wd_conn(WD_ASSOC_RESULT, dev->ifindex, (const u8 *)ind->bssid.array, ind->center_freq, ind->status_code, ind->roamed);
 	AICWFDBG(LOGINFO, "%s ind->status_code:%d \r\n", __func__, ind->status_code);
 
 	if (ind->status_code == 0) {
@@ -1082,13 +1084,13 @@ static inline int rwnx_rx_sm_disconnect_ind(struct rwnx_hw *rwnx_hw,
 	struct rwnx_vif *rwnx_vif = rwnx_hw->vif_table[ind->vif_idx];
 	struct net_device *dev;
 #ifdef AICWF_RX_REORDER
-	struct reord_ctrl_info *reord_info, *tmp;
 	u8 *macaddr;
 	struct aicwf_rx_priv *rx_priv;
 #endif
 
 	//RWNX_DBG(RWNX_FN_ENTRY_STR);
 	AICWFDBG(LOGINFO, "%s reason code:%d \r\n", __func__, ind->reason_code);
+	wd_conn(WD_DISCONNECT_IND, rwnx_vif && rwnx_vif->ndev ? rwnx_vif->ndev->ifindex : 0, NULL, 0, ind->reason_code, (ind->reassoc << 1) | ind->ft_over_ds);
 
 	if((int)atomic_read(&rwnx_vif->drv_conn_state) == (int)RWNX_DRV_STATUS_DISCONNECTED){
 		AICWFDBG(LOGINFO, "%s, is already disconnected, drop disconnect ind", __func__);
@@ -1122,6 +1124,7 @@ static inline int rwnx_rx_sm_disconnect_ind(struct rwnx_hw *rwnx_hw,
 	/* if vif is not up, rwnx_close has already been called */
 	if (rwnx_vif->up) {
 		if (!ind->ft_over_ds && !ind->reassoc) {
+			wd_conn(WD_CFG_DISCONNECT, dev->ifindex, NULL, 0, ind->reason_code, ind->reason_code < 1);
 			cfg80211_disconnected(dev, ind->reason_code, NULL, 0,
 								  (ind->reason_code < 1), GFP_ATOMIC);
 		}
@@ -1145,22 +1148,13 @@ static inline int rwnx_rx_sm_disconnect_ind(struct rwnx_hw *rwnx_hw,
 		printk("deinit:macaddr:%x,%x,%x,%x,%x,%x\r\n", macaddr[0], macaddr[1], macaddr[2], \
 							   macaddr[3], macaddr[4], macaddr[5]);
 
-		//spin_lock_bh(&rx_priv->stas_reord_lock);
-		list_for_each_entry_safe(reord_info, tmp, &rx_priv->stas_reord_list, list) {
-			macaddr = (u8*)rwnx_vif->ndev->dev_addr;
-			printk("reord_mac:%x,%x,%x,%x,%x,%x\r\n", reord_info->mac_addr[0], reord_info->mac_addr[1], reord_info->mac_addr[2], \
-								   reord_info->mac_addr[3], reord_info->mac_addr[4], reord_info->mac_addr[5]);
-			if (!memcmp(reord_info->mac_addr, macaddr, 6)) {
-				reord_deinit_sta(rx_priv, reord_info);
-				break;
-			}
-		}
-		//spin_unlock_bh(&rx_priv->stas_reord_lock);
+		reord_deinit_by_mac(rx_priv, macaddr);
 	} else if ((rwnx_vif->wdev.iftype == NL80211_IFTYPE_AP) || (rwnx_vif->wdev.iftype == NL80211_IFTYPE_P2P_GO)) {
 		BUG();//should be not here: del_sta function
 	}
 #endif
 
+	wd_conn(WD_STA_TEARDOWN, dev->ifindex, NULL, 0, ind->reason_code, 0);
 	rwnx_txq_sta_deinit(rwnx_hw, rwnx_vif->sta.ap);
 	rwnx_txq_tdls_vif_deinit(rwnx_vif);
 	#if 0
