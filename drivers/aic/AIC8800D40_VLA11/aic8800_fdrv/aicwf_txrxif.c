@@ -534,12 +534,13 @@ static struct recv_msdu *aicwf_rxframe_queue_init(struct list_head *q, int qsize
 	int i;
 	struct recv_msdu *req, *reqs;
 
-	reqs = vmalloc(qsize*sizeof(struct recv_msdu));
+	reqs = vzalloc(qsize * sizeof(struct recv_msdu));
 	if (reqs == NULL)
 		return NULL;
 
 	req = reqs;
 	for (i = 0; i < qsize; i++) {
+		INIT_LIST_HEAD(&req->reord_pending_list);
 		INIT_LIST_HEAD(&req->rxframe_list);
 		list_add(&req->rxframe_list, q);
 		req++;
@@ -601,16 +602,7 @@ static void aicwf_recvframe_queue_deinit(struct list_head *q)
 
 void aicwf_rx_deinit(struct aicwf_rx_priv *rx_priv)
 {
-#ifdef AICWF_RX_REORDER
-	struct reord_ctrl_info *reord_info, *tmp;
-
 	AICWFDBG(LOGINFO, "%s\n", __func__);
-
-	list_for_each_entry_safe(reord_info, tmp,
-		&rx_priv->stas_reord_list, list) {
-		reord_deinit_sta(rx_priv, reord_info);
-	}
-#endif
 
 #ifdef AICWF_SDIO_SUPPORT
 	AICWFDBG(LOGINFO, "sdio rx thread\n");
@@ -636,6 +628,11 @@ void aicwf_rx_deinit(struct aicwf_rx_priv *rx_priv)
 		kthread_stop(rx_priv->usbdev->bus_if->busrx_thread);
 		rx_priv->usbdev->bus_if->busrx_thread = NULL;
 	}
+#endif
+
+#ifdef AICWF_RX_REORDER
+	/* No receive thread may allocate a new controller during teardown. */
+	reord_deinit_all(rx_priv);
 #endif
 
 	#ifdef CONFIG_PREALLOC_RX_SKB

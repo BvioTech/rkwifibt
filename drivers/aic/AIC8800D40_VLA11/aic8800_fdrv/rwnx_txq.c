@@ -10,6 +10,7 @@
 
 #include "rwnx_defs.h"
 #include "rwnx_tx.h"
+#include "wifi_diag.h"
 #include "ipc_host.h"
 #include "rwnx_events.h"
 
@@ -164,6 +165,7 @@ void rwnx_txq_flush(struct rwnx_hw *rwnx_hw, struct rwnx_txq *txq)
 
 
 	while ((skb = skb_dequeue(&txq->sk_list)) != NULL) {
+		wd_tx_host(WD_TXQ_FLUSH, skb, skb_queue_len(&txq->sk_list), 0, 0, true);
 		struct rwnx_sw_txhdr *sw_txhdr = ((struct rwnx_txhdr *)skb->data)->sw_hdr;
 
 #ifdef CONFIG_RWNX_AMSDUS_TX

@@ -14,6 +14,7 @@
 
 #include "rwnx_defs.h"
 #include "rwnx_rx.h"
+#include "wifi_diag.h"
 #include "rwnx_tx.h"
 #include "rwnx_prof.h"
 #include "ipc_host.h"
@@ -423,6 +424,7 @@ static void rwnx_rx_data_skb_forward(struct rwnx_hw *rwnx_hw, struct rwnx_vif *r
 
 	//printk("forward\n");
 
+	wd_rx(WD_RX_UP, rx_skb, rwnx_vif->ndev->ifindex, 0, true);
 	rx_skb->protocol = eth_type_trans(rx_skb, rwnx_vif->ndev);
 	memset(rx_skb->cb, 0, sizeof(rx_skb->cb));
 	REG_SW_SET_PROFILING(rwnx_hw, SW_PROF_IEEE80211RX);
@@ -685,6 +687,7 @@ static bool rwnx_rx_data_skb(struct rwnx_hw *rwnx_hw, struct rwnx_vif *rwnx_vif,
 			rwnx_vif->net_stats.rx_packets++;
 			rwnx_vif->net_stats.rx_bytes += rx_skb->len;
 
+			wd_rx(WD_RX_UP, rx_skb, rwnx_vif->ndev->ifindex, 0, true);
 			rx_skb->protocol = eth_type_trans(rx_skb, rwnx_vif->ndev);
 #ifdef AICWF_ARP_OFFLOAD
 			if (RWNX_VIF_TYPE(rwnx_vif) == NL80211_IFTYPE_STATION || RWNX_VIF_TYPE(rwnx_vif) == NL80211_IFTYPE_P2P_CLIENT)
@@ -1544,36 +1547,68 @@ void arpoffload_proc(struct sk_buff *skb, struct rwnx_vif *rwnx_vif)
 #endif
 
 #ifdef AICWF_RX_REORDER
+static char *rxfix_build = "20261019-r2";
+module_param(rxfix_build, charp, 0444);
+MODULE_PARM_DESC(rxfix_build, "Standalone RX ownership/lifetime fix build");
+MODULE_INFO(rxfix, "20261019-r2");
+static atomic_t rxfix_sta_drop_count = ATOMIC_INIT(0);
+
+/* Clear payload ownership only; list links belong to their queue owner. */
+static void reord_clear_payload(struct recv_msdu *frame)
+{
+	frame->pkt = NULL;
+	frame->rx_data = NULL;
+	frame->preorder_ctrl = NULL;
+	frame->seq_num = 0;
+	frame->tid = 0;
+	frame->forward = 0;
+	frame->is_amsdu = 0;
+	frame->is_ap_reord = 0;
+	frame->ap_fwd_cnt = 0;
+	frame->ap_resend_cnt = 0;
+	frame->first_fwd_skb = frame->last_fwd_skb = NULL;
+	frame->first_resend_skb = frame->last_resend_skb = NULL;
+}
+
+static void reord_free_skb_chain(struct sk_buff *skb)
+{
+	while (skb) {
+		struct sk_buff *next = skb->next;
+
+		skb->next = NULL;
+		dev_kfree_skb_any(skb);
+		skb = next;
+	}
+}
+
 void aicwf_pframe_free(struct aicwf_rx_priv *rx_priv,struct recv_msdu *pframe){
-	struct sk_buff *cur, *tmp;
+	struct sk_buff *pkt, *fwd, *resend;
+	bool ap;
 
-	cur = pframe->first_fwd_skb;
-	while (cur) {
-		tmp = cur->next;
-		pframe->ap_fwd_cnt--;
-		dev_kfree_skb(cur);
-		cur = tmp;
+	if (!pframe)
+		return;
+	ap = pframe->is_ap_reord;
+	pkt = pframe->pkt;
+	fwd = pframe->first_fwd_skb;
+	resend = pframe->first_resend_skb;
+	/* Detach ownership before freeing, without resetting live list links. */
+	reord_clear_payload(pframe);
+	if (ap) {
+		reord_free_skb_chain(fwd);
+		reord_free_skb_chain(resend);
+	} else {
+		/* STA owns pkt only. AP pointers must never be dereferenced here. */
+		dev_kfree_skb_any(pkt);
 	}
-
-	cur = pframe->first_resend_skb;
-	while (cur) {
-		tmp = cur->next;
-		pframe->ap_resend_cnt--;
-		dev_kfree_skb(cur);
-		cur = tmp;
-	}
-
-	pframe->pkt = NULL;
-	pframe->ap_fwd_cnt = 0;
-	pframe->ap_resend_cnt = 0;
-	pframe->first_fwd_skb = pframe->last_fwd_skb = NULL;
-	pframe->first_resend_skb = pframe->last_resend_skb = NULL;
-
 }
 
 void reord_rxframe_free(spinlock_t *lock, struct list_head *q, struct list_head *list)
 {
 	spin_lock_bh(lock);
+	if (WARN_ON_ONCE(!list_empty(list))) {
+		spin_unlock_bh(lock);
+		return;
+	}
 	list_add(list, q);
 	spin_unlock_bh(lock);
 }
@@ -1589,6 +1624,9 @@ struct recv_msdu *reord_rxframe_alloc(spinlock_t *lock, struct list_head *q)
 	}
 	rxframe = list_entry(q->next, struct recv_msdu, rxframe_list);
 	list_del_init(q->next);
+	/* The descriptor is exclusively owned after removal from the pool. */
+	reord_clear_payload(rxframe);
+	INIT_LIST_HEAD(&rxframe->reord_pending_list);
 	spin_unlock_bh(lock);
 	return rxframe;
 }
@@ -1604,19 +1642,22 @@ struct reord_ctrl_info *reord_init_sta(struct aicwf_rx_priv *rx_priv, const u8 *
 	struct aicwf_bus *bus_if = rx_priv->usbdev->bus_if;
 #endif
 
-	if (bus_if->state == BUS_DOWN_ST || rx_priv == NULL) {
+	if (bus_if->state == BUS_DOWN_ST) {
 		AICWFDBG(LOGERROR, "bad stat!\n");
 		return NULL;
 	}
 
 	AICWFDBG(LOGINFO, "reord_init_sta:%pM\n", mac_addr);
-	reord_info = kmalloc(sizeof(struct reord_ctrl_info), GFP_ATOMIC);
+	reord_info = kzalloc(sizeof(struct reord_ctrl_info), GFP_ATOMIC);
 	if (!reord_info)
 		return NULL;
 
+	refcount_set(&reord_info->refs, 1); /* Membership, transferred to teardown. */
+	INIT_LIST_HEAD(&reord_info->list);
 	memcpy(reord_info->mac_addr, mac_addr, ETH_ALEN);
 	for (i = 0; i < 8; i++) {
 		preorder_ctrl = &reord_info->preorder_ctrl[i];
+		preorder_ctrl->owner = reord_info;
 		preorder_ctrl->enable = true;
 		preorder_ctrl->ind_sn = 0xffff;
 		preorder_ctrl->wsize_b = AICWF_REORDER_WINSIZE;
@@ -1636,111 +1677,159 @@ struct reord_ctrl_info *reord_init_sta(struct aicwf_rx_priv *rx_priv, const u8 *
 	return reord_info;
 }
 
-int reord_flush_tid(struct aicwf_rx_priv *rx_priv, struct sk_buff *skb, u8 tid)
+static void reord_put_sta(struct reord_ctrl_info *info)
 {
-	struct reord_ctrl_info *reord_info;
-	struct reord_ctrl *preorder_ctrl;
-	struct rwnx_vif *rwnx_vif = (struct rwnx_vif *)rx_priv->rwnx_vif;
-	struct ethhdr *eh = (struct ethhdr *)(skb->data);
-	u8 *mac;
-	unsigned long flags;
-	u8 found = 0;
-	struct list_head *phead, *plist;
-	struct recv_msdu *prframe;
-	int ret;
+	if (refcount_dec_and_test(&info->refs))
+		kfree(info);
+}
 
-	if ((rwnx_vif->wdev.iftype == NL80211_IFTYPE_STATION) || (rwnx_vif->wdev.iftype == NL80211_IFTYPE_P2P_CLIENT))
-		mac = eh->h_dest;
-	else if ((rwnx_vif->wdev.iftype == NL80211_IFTYPE_AP) || (rwnx_vif->wdev.iftype == NL80211_IFTYPE_P2P_GO))
-		mac = eh->h_source;
-	else if(rwnx_vif->wdev.iftype == NL80211_IFTYPE_AP_VLAN) {
-		mac = eh->h_source;
-	}
-	else {
-		AICWFDBG(LOGERROR, "error mode:%d!\n", rwnx_vif->wdev.iftype);
-		dev_kfree_skb(skb);
-		return -1;
-	}
+static struct reord_ctrl_info *reord_get_sta(struct aicwf_rx_priv *rx_priv,
+					    const u8 *mac, bool create)
+{
+	struct reord_ctrl_info *info;
 
 	spin_lock_bh(&rx_priv->stas_reord_lock);
-	list_for_each_entry(reord_info, &rx_priv->stas_reord_list, list) {
-		if (!memcmp(mac, reord_info->mac_addr, ETH_ALEN)) {
-			found = 1;
-			preorder_ctrl = &reord_info->preorder_ctrl[tid];
-			break;
+	list_for_each_entry(info, &rx_priv->stas_reord_list, list) {
+		if (!memcmp(mac, info->mac_addr, ETH_ALEN)) {
+			refcount_inc(&info->refs);
+			spin_unlock_bh(&rx_priv->stas_reord_lock);
+			return info;
 		}
 	}
-	if (!found) {
-		spin_unlock_bh(&rx_priv->stas_reord_lock);
-		return 0;
+	info = create ? reord_init_sta(rx_priv, mac) : NULL;
+	if (info) {
+		list_add_tail(&info->list, &rx_priv->stas_reord_list);
+		refcount_inc(&info->refs);
 	}
 	spin_unlock_bh(&rx_priv->stas_reord_lock);
+	return info;
+}
 
-	if (preorder_ctrl->enable == false)
+/*
+ * The caller must disable the queue and retain its owner reference.
+ * Drop reord_list_lock before synchronously draining these callbacks.
+ */
+static void reord_cancel_pending(struct reord_ctrl *ctrl)
+{
+	del_timer_sync(&ctrl->reord_timer);
+	cancel_work_sync(&ctrl->reord_timer_work);
+}
+
+int reord_flush_tid(struct aicwf_rx_priv *rx_priv, struct sk_buff *skb, u8 tid)
+{
+	struct reord_ctrl_info *info;
+	struct reord_ctrl *ctrl;
+	struct rwnx_vif *vif = rx_priv->rwnx_vif;
+	struct ethhdr *eh;
+	const u8 *mac;
+	struct recv_msdu *frame;
+
+	/* This function never consumes the caller's skb. */
+	if (!vif || !skb || !pskb_may_pull(skb, ETH_HLEN) || tid >= 8)
 		return 0;
-	spin_lock_irqsave(&preorder_ctrl->reord_list_lock, flags);
-	phead = &preorder_ctrl->reord_list;
-	while (1) {
-		if (list_empty(phead)) {
-			break;
-		}
-		plist = phead->next;
-		prframe = list_entry(plist, struct recv_msdu, reord_pending_list);
-		reord_single_frame_ind(rx_priv, prframe);
-		list_del_init(&(prframe->reord_pending_list));
+	eh = (struct ethhdr *)skb->data;
+	if (vif->wdev.iftype == NL80211_IFTYPE_STATION ||
+	    vif->wdev.iftype == NL80211_IFTYPE_P2P_CLIENT)
+		mac = eh->h_dest;
+	else if (vif->wdev.iftype == NL80211_IFTYPE_AP ||
+		 vif->wdev.iftype == NL80211_IFTYPE_P2P_GO ||
+		 vif->wdev.iftype == NL80211_IFTYPE_AP_VLAN)
+		mac = eh->h_source;
+	else
+		return 0;
+	info = reord_get_sta(rx_priv, mac, false);
+	if (!info)
+		return 0;
+	ctrl = &info->preorder_ctrl[tid];
+	spin_lock_bh(&ctrl->reord_list_lock);
+	if (READ_ONCE(info->dying) || !ctrl->enable || ctrl->flushing) {
+		spin_unlock_bh(&ctrl->reord_list_lock);
+		reord_put_sta(info);
+		return 0;
 	}
-
-	AICWFDBG(LOGINFO, "flush:tid=%d", tid);
-	preorder_ctrl->enable = false;
-	spin_unlock_irqrestore(&preorder_ctrl->reord_list_lock, flags);
-	if (timer_pending(&preorder_ctrl->reord_timer))
-		ret = del_timer_sync(&preorder_ctrl->reord_timer);
-	cancel_work_sync(&preorder_ctrl->reord_timer_work);
-
+	ctrl->enable = false;
+	ctrl->flushing = true;
+	while (!list_empty(&ctrl->reord_list)) {
+		frame = list_first_entry(&ctrl->reord_list, struct recv_msdu,
+					 reord_pending_list);
+		/* Detach before indication returns the object to the free pool. */
+		list_del_init(&frame->reord_pending_list);
+		reord_single_frame_ind(rx_priv, frame);
+	}
+	spin_unlock_bh(&ctrl->reord_list_lock);
+	/* The reference protects ctrl across these synchronous cancellations. */
+	reord_cancel_pending(ctrl);
+	spin_lock_bh(&ctrl->reord_list_lock);
+	ctrl->flushing = false;
+	spin_unlock_bh(&ctrl->reord_list_lock);
+	reord_put_sta(info);
 	return 0;
 }
 
-
-void reord_deinit_sta(struct aicwf_rx_priv *rx_priv, struct reord_ctrl_info *reord_info)
+/* Called only after the entry was detached under stas_reord_lock. */
+static void reord_destroy_sta(struct aicwf_rx_priv *rx_priv,
+			      struct reord_ctrl_info *info)
 {
-	u8 i = 0;
-	unsigned long flags;
-	struct reord_ctrl *preorder_ctrl = NULL;
-	int ret;
+	int i;
 
-	if (rx_priv == NULL) {
-		txrx_err("bad rx_priv!\n");
-		return;
-	}
+	for (i = 0; i < ARRAY_SIZE(info->preorder_ctrl); i++) {
+		struct reord_ctrl *ctrl = &info->preorder_ctrl[i];
+		struct recv_msdu *frame, *next;
 
-	for (i = 0; i < 8; i++) {
-		struct recv_msdu *req, *next;
-		preorder_ctrl = &reord_info->preorder_ctrl[i];
-		if(preorder_ctrl->enable){
-			preorder_ctrl->enable = false;
-			if (timer_pending(&preorder_ctrl->reord_timer)) {
-				ret = del_timer_sync(&preorder_ctrl->reord_timer);
-			}
-			cancel_work_sync(&preorder_ctrl->reord_timer_work);
+		spin_lock_bh(&ctrl->reord_list_lock);
+		ctrl->enable = false;
+		spin_unlock_bh(&ctrl->reord_list_lock);
+		reord_cancel_pending(ctrl);
+		spin_lock_bh(&ctrl->reord_list_lock);
+		list_for_each_entry_safe(frame, next, &ctrl->reord_list,
+					 reord_pending_list) {
+			list_del_init(&frame->reord_pending_list);
+			aicwf_pframe_free(rx_priv, frame);
+			reord_rxframe_free(&rx_priv->freeq_lock,
+					   &rx_priv->rxframes_freequeue,
+					   &frame->rxframe_list);
 		}
-		spin_lock_irqsave(&preorder_ctrl->reord_list_lock, flags);
-		list_for_each_entry_safe(req, next, &preorder_ctrl->reord_list, reord_pending_list) {
-			list_del_init(&req->reord_pending_list);
-
-			if(req->ap_fwd_cnt || req->ap_resend_cnt)
-				txrx_err("%s %d need check fwd_cnt %d resend_cnt %d \r\n", __func__, __LINE__, req->ap_fwd_cnt,req->ap_resend_cnt);
-
-			aicwf_pframe_free(rx_priv, req);
-
-			reord_rxframe_free(&rx_priv->freeq_lock, &rx_priv->rxframes_freequeue, &req->rxframe_list);
-		}
-		spin_unlock_irqrestore(&preorder_ctrl->reord_list_lock, flags);
-
+		spin_unlock_bh(&ctrl->reord_list_lock);
 	}
+	/* Readers already holding a reference finish before the final free. */
+	reord_put_sta(info);
+}
+
+void reord_deinit_by_mac(struct aicwf_rx_priv *rx_priv, const u8 *mac)
+{
+	struct reord_ctrl_info *info, *found = NULL;
+
 	spin_lock_bh(&rx_priv->stas_reord_lock);
-	list_del(&reord_info->list);
+	list_for_each_entry(info, &rx_priv->stas_reord_list, list) {
+		if (!memcmp(info->mac_addr, mac, ETH_ALEN)) {
+			WRITE_ONCE(info->dying, true);
+			list_del_init(&info->list);
+			found = info;
+			break;
+		}
+	}
 	spin_unlock_bh(&rx_priv->stas_reord_lock);
-	kfree(reord_info);
+	if (found)
+		reord_destroy_sta(rx_priv, found);
+}
+
+void reord_deinit_all(struct aicwf_rx_priv *rx_priv)
+{
+	struct reord_ctrl_info *info;
+
+	for (;;) {
+		spin_lock_bh(&rx_priv->stas_reord_lock);
+		if (list_empty(&rx_priv->stas_reord_list)) {
+			spin_unlock_bh(&rx_priv->stas_reord_lock);
+			return;
+		}
+		info = list_first_entry(&rx_priv->stas_reord_list,
+					struct reord_ctrl_info, list);
+		WRITE_ONCE(info->dying, true);
+		list_del_init(&info->list);
+		spin_unlock_bh(&rx_priv->stas_reord_lock);
+		reord_destroy_sta(rx_priv, info);
+	}
 }
 
 int reord_single_frame_ind(struct aicwf_rx_priv *rx_priv, struct recv_msdu *prframe)
@@ -1753,6 +1842,12 @@ int reord_single_frame_ind(struct aicwf_rx_priv *rx_priv, struct recv_msdu *prfr
 
 	rxframes_freequeue = &rx_priv->rxframes_freequeue;
 	skb = prframe->pkt;
+	if (!skb || !rwnx_vif) {
+		aicwf_pframe_free(rx_priv, prframe);
+		reord_rxframe_free(&rx_priv->freeq_lock, rxframes_freequeue,
+				   &prframe->rxframe_list);
+		return 0;
+	}
 
 	#ifdef CONFIG_BR_SUPPORT
 		 void *br_port = NULL;
@@ -1779,11 +1874,6 @@ int reord_single_frame_ind(struct aicwf_rx_priv *rx_priv, struct recv_msdu *prfr
 		 }
 	#endif /* CONFIG_BR_SUPPORT */
 
-	if (skb == NULL) {
-		txrx_err("skb is NULL\n");
-		return -1;
-	}
-
 	if(prframe->is_ap_reord) {
 		if(prframe->ap_resend_cnt) {
 			struct sk_buff *resend_skb = prframe->first_resend_skb;
@@ -1792,14 +1882,17 @@ int reord_single_frame_ind(struct aicwf_rx_priv *rx_priv, struct recv_msdu *prfr
 			while(resend_skb) {
 				resend_cnt++;
 				resend_next_skb = resend_skb->next;
+				resend_skb->next = NULL;
 				dev_kfree_skb(resend_skb);
 				resend_skb = resend_next_skb;
 			}
 			if(resend_cnt != prframe->ap_resend_cnt)
 				printk("resend cnt error: %d,%d\n", resend_cnt, prframe->ap_resend_cnt);
+			prframe->first_resend_skb = prframe->last_resend_skb = NULL;
+			prframe->ap_resend_cnt = 0;
 
 			if(!prframe->ap_fwd_cnt) {
-				prframe->pkt = NULL;
+				reord_clear_payload(prframe);
 				reord_rxframe_free(&rx_priv->freeq_lock, rxframes_freequeue, &prframe->rxframe_list);
 				return 0;
 			} //else
@@ -1808,7 +1901,7 @@ int reord_single_frame_ind(struct aicwf_rx_priv *rx_priv, struct recv_msdu *prfr
 	} else {
 		if(!prframe->forward) {
 			dev_kfree_skb(skb);
-			prframe->pkt = NULL;
+			reord_clear_payload(prframe);
 			reord_rxframe_free(&rx_priv->freeq_lock, rxframes_freequeue, &prframe->rxframe_list);
 			return 0;
 		}
@@ -1826,6 +1919,9 @@ int reord_single_frame_ind(struct aicwf_rx_priv *rx_priv, struct recv_msdu *prfr
 		struct sk_buff *fwd_skb = prframe->first_fwd_skb;
 		struct sk_buff *fwd_next_skb;
 		u8 fwd_cnt = 0;
+		u8 expected_fwd = prframe->ap_fwd_cnt;
+
+		reord_clear_payload(prframe);
 		while(fwd_skb) {
             //printk("single ind:%p\n", fwd_skb);
 			fwd_cnt++;
@@ -1833,8 +1929,8 @@ int reord_single_frame_ind(struct aicwf_rx_priv *rx_priv, struct recv_msdu *prfr
 			__skb_queue_tail(&list, fwd_skb);
 			fwd_skb = fwd_next_skb;
 		}
-		if(fwd_cnt != prframe->ap_fwd_cnt)
-			txrx_err("fwd cnt error: %d,%d\n", fwd_cnt, prframe->ap_fwd_cnt);
+		if(fwd_cnt != expected_fwd)
+			txrx_err("fwd cnt error: %d,%d\n", fwd_cnt, expected_fwd);
     }
 
 
@@ -1846,6 +1942,7 @@ int reord_single_frame_ind(struct aicwf_rx_priv *rx_priv, struct recv_msdu *prfr
 	//printk("netif sn=%d, len=%d\n", precv_frame->attrib.seq_num, skb->len);
 
 	rx_skb->dev = rwnx_vif->ndev;
+	wd_rx(WD_RX_UP, rx_skb, rwnx_vif->ndev->ifindex, 0, true);
 	rx_skb->protocol = eth_type_trans(rx_skb, rwnx_vif->ndev);
 
 #ifdef AICWF_ARP_OFFLOAD
@@ -1884,7 +1981,7 @@ int reord_single_frame_ind(struct aicwf_rx_priv *rx_priv, struct recv_msdu *prfr
 #endif /* CONFIG_RX_NETIF_RECV_SKB */
     }
 
-    prframe->pkt = NULL;
+    reord_clear_payload(prframe);
     reord_rxframe_free(&rx_priv->freeq_lock, rxframes_freequeue, &prframe->rxframe_list);
 
 	return 0;
@@ -1978,7 +2075,10 @@ void reord_timeout_handler (struct timer_list *t)
 	}
 #endif
 
-	if (!work_pending(&preorder_ctrl->reord_timer_work))
+	if (READ_ONCE(preorder_ctrl->enable) &&
+	    !READ_ONCE(preorder_ctrl->flushing) &&
+	    !READ_ONCE(preorder_ctrl->owner->dying) &&
+	    !work_pending(&preorder_ctrl->reord_timer_work))
 		schedule_work(&preorder_ctrl->reord_timer_work);
 }
 
@@ -1988,6 +2088,11 @@ void reord_timeout_worker(struct work_struct *work)
 	struct aicwf_rx_priv *rx_priv = preorder_ctrl->rx_priv;
 
 	spin_lock_bh(&preorder_ctrl->reord_list_lock);
+	if (!preorder_ctrl->enable || preorder_ctrl->flushing ||
+	    READ_ONCE(preorder_ctrl->owner->dying)) {
+		spin_unlock_bh(&preorder_ctrl->reord_list_lock);
+		return;
+	}
 #if 1//AIDEN
 	if (reord_rxframes_process(rx_priv, preorder_ctrl, true)==true) {
 		mod_timer(&preorder_ctrl->reord_timer, jiffies + msecs_to_jiffies(reorder_timeout/*REORDER_UPDATE_TIME*/));
@@ -2002,17 +2107,25 @@ void reord_timeout_worker(struct work_struct *work)
 
 int reord_process_unit(struct recv_msdu *pframe, struct aicwf_rx_priv *rx_priv, struct sk_buff *skb, u16 seq_num, u8 tid, u8 forward, u8 is_amsdu)
 {
-	int ret = 0;
 	u8 *mac;
 	struct reord_ctrl *preorder_ctrl;
 	struct reord_ctrl_info *reord_info;
 	struct rwnx_vif *rwnx_vif = (struct rwnx_vif *)rx_priv->rwnx_vif;
-	struct ethhdr *eh = (struct ethhdr *)(skb->data);
+	struct ethhdr *eh;
 
-	if (rwnx_vif == NULL || skb->len <= 14) {
-		dev_kfree_skb(skb);
-		return -1;
+	/* AP callers may have already freed their last iterated rx_skb. */
+	if (pframe->is_ap_reord)
+		skb = pframe->first_fwd_skb ? pframe->first_fwd_skb :
+			pframe->first_resend_skb;
+	pframe->pkt = skb;
+	/* This function consumes the descriptor on every exit, including drops. */
+	if (!rwnx_vif || !skb || !pskb_may_pull(skb, ETH_HLEN) || tid >= 8) {
+		wd_rx(WD_RX_BAD_TID, skb, rwnx_vif ? rwnx_vif->ndev->ifindex : 0, tid, true);
+		if (tid >= 8)
+			pr_warn_ratelimited("AICRXFIX invalid TID=%u dropped\n", tid);
+		goto fail;
 	}
+	eh = (struct ethhdr *)skb->data;
 
 	#if 0
 	struct recv_msdu *pframe;
@@ -2028,9 +2141,7 @@ int reord_process_unit(struct recv_msdu *pframe, struct aicwf_rx_priv *rx_priv, 
 	pframe->tid = tid;
 	pframe->rx_data = skb->data;
 	//pframe->len = skb->len;
-	pframe->pkt = skb;
 	pframe->forward = forward;
-	preorder_ctrl = pframe->preorder_ctrl;
 	pframe->is_amsdu = is_amsdu;
 
 	if (ntohs(eh->h_proto) == ETH_P_PAE)
@@ -2044,55 +2155,41 @@ int reord_process_unit(struct recv_msdu *pframe, struct aicwf_rx_priv *rx_priv, 
 		mac = eh->h_source;
 	}
 	else {
-		dev_kfree_skb(skb);
-		return -1;
+		goto fail;
 	}
 
-	spin_lock_bh(&rx_priv->stas_reord_lock);
-	list_for_each_entry(reord_info, &rx_priv->stas_reord_list, list) {
-		if (!memcmp(mac, reord_info->mac_addr, ETH_ALEN)) {
-			preorder_ctrl = &reord_info->preorder_ctrl[pframe->tid];
-			break;
-		}
+	reord_info = reord_get_sta(rx_priv, mac, true);
+	if (!reord_info)
+		return reord_single_frame_ind(rx_priv, pframe);
+	preorder_ctrl = &reord_info->preorder_ctrl[tid];
+	spin_lock_bh(&preorder_ctrl->reord_list_lock);
+	if (READ_ONCE(reord_info->dying)) {
+		spin_unlock_bh(&preorder_ctrl->reord_list_lock);
+		reord_put_sta(reord_info);
+		goto fail;
 	}
-
-	if (&reord_info->list == &rx_priv->stas_reord_list) {
-		reord_info = reord_init_sta(rx_priv, mac);
-		if (!reord_info) {
-			spin_unlock_bh(&rx_priv->stas_reord_lock);
-            reord_single_frame_ind(rx_priv, pframe);
-			return -1;
-		}
-		list_add_tail(&reord_info->list, &rx_priv->stas_reord_list);
-		preorder_ctrl = &reord_info->preorder_ctrl[pframe->tid];
-	} else {
-		if (preorder_ctrl->enable == false) {
-			preorder_ctrl->enable = true;
-			preorder_ctrl->ind_sn = 0xffff;
-			preorder_ctrl->wsize_b = AICWF_REORDER_WINSIZE;
-			preorder_ctrl->rx_priv = rx_priv;
-		}
+	if (preorder_ctrl->flushing) {
+		spin_unlock_bh(&preorder_ctrl->reord_list_lock);
+		reord_put_sta(reord_info);
+		return reord_single_frame_ind(rx_priv, pframe);
 	}
-	spin_unlock_bh(&rx_priv->stas_reord_lock);
-
-	if (preorder_ctrl->enable == false) {
-        spin_lock_bh(&preorder_ctrl->reord_list_lock);
-		preorder_ctrl->ind_sn = pframe->seq_num;
-		reord_single_frame_ind(rx_priv, pframe);
-		preorder_ctrl->ind_sn = (preorder_ctrl->ind_sn + 1)%4096;
-        spin_unlock_bh(&preorder_ctrl->reord_list_lock);
-		return 0;
+	if (!preorder_ctrl->enable) {
+		preorder_ctrl->enable = true;
+		preorder_ctrl->ind_sn = 0xffff;
+		preorder_ctrl->wsize_b = AICWF_REORDER_WINSIZE;
 	}
-
-    spin_lock_bh(&preorder_ctrl->reord_list_lock);
     if (reord_need_check(preorder_ctrl, pframe->seq_num)) {
 #if 1
-        if(pframe->rx_data[42] == 0x80){//this is rtp package
+        if(pskb_may_pull(skb, 43) && skb->data[42] == 0x80){
             if(pframe->seq_num == preorder_ctrl->ind_sn){
                 printk("%s pframe->seq_num1:%d \r\n", __func__, pframe->seq_num);
                 reord_single_frame_ind(rx_priv, pframe);//not need to reorder
             }else{
 				printk("%s free pframe->seq_num:%d fwd_cnt %d resend_cnt %d \r\n", __func__, pframe->seq_num,pframe->ap_fwd_cnt,pframe->ap_resend_cnt);
+				if (!pframe->is_ap_reord)
+					pr_info_ratelimited("AICRXFIX safe station drop seq=%u count=%d\n",
+						pframe->seq_num, atomic_inc_return(&rxfix_sta_drop_count));
+				wd_rx(WD_RX_REORDER_DROP, skb, rwnx_vif->ndev->ifindex, pframe->seq_num, true);
 				aicwf_pframe_free(rx_priv, pframe);
 
                 reord_rxframe_free(&rx_priv->freeq_lock, &rx_priv->rxframes_freequeue, &pframe->rxframe_list);
@@ -2105,26 +2202,29 @@ int reord_process_unit(struct recv_msdu *pframe, struct aicwf_rx_priv *rx_priv, 
         reord_single_frame_ind(rx_priv, pframe);//not need to reor
 #endif
         spin_unlock_bh(&preorder_ctrl->reord_list_lock);
+		reord_put_sta(reord_info);
 		return 0;
     }
 
 	if (reord_rxframe_enqueue(preorder_ctrl, pframe)) {
 		spin_unlock_bh(&preorder_ctrl->reord_list_lock);
+		reord_put_sta(reord_info);
 		goto fail;
 	}
 
 	if (reord_rxframes_process(rx_priv, preorder_ctrl, false) == true) {
 		if (!timer_pending(&preorder_ctrl->reord_timer)) {
-			ret = mod_timer(&preorder_ctrl->reord_timer, jiffies + msecs_to_jiffies(reorder_timeout/*REORDER_UPDATE_TIME*/));
+			mod_timer(&preorder_ctrl->reord_timer, jiffies + msecs_to_jiffies(reorder_timeout/*REORDER_UPDATE_TIME*/));
 		}
 	} else {
 	if (timer_pending(&preorder_ctrl->reord_timer)) {
-			ret = del_timer(&preorder_ctrl->reord_timer);
+			del_timer(&preorder_ctrl->reord_timer);
 	}
 	}
 
 	reord_rxframes_ind(rx_priv, preorder_ctrl);
 	spin_unlock_bh(&preorder_ctrl->reord_list_lock);
+	reord_put_sta(reord_info);
 
 	return 0;
 
@@ -2135,7 +2235,7 @@ fail:
 	aicwf_pframe_free(rx_priv, pframe);
 
 	reord_rxframe_free(&rx_priv->freeq_lock, &rx_priv->rxframes_freequeue, &pframe->rxframe_list);
-	return ret;
+	return 0;
 }
 
 int reord_need_check(struct reord_ctrl *preorder_ctrl, u16 seq_num)
@@ -2819,6 +2919,7 @@ check_len_update:
 			rwnx_vif = rwnx_rx_get_vif(rwnx_hw, hw_rxhdr->flags_vif_idx);
 
 			if (!rwnx_vif) {
+				wd_rx(WD_RX_NO_VIF, skb, 0, hw_rxhdr->flags_vif_idx, true);
 				dev_err(rwnx_hw->dev, "Frame received but no active vif(%d)",
 						hw_rxhdr->flags_vif_idx);
 				dev_kfree_skb(skb);
@@ -2834,6 +2935,7 @@ check_len_update:
 				if (sta->vlan_idx != rwnx_vif->vif_index) {
 					rwnx_vif = rwnx_hw->vif_table[sta->vlan_idx];
 					if (!rwnx_vif) {
+						wd_rx(WD_RX_VLAN_MISS, skb, 0, sta->vlan_idx, true);
 						dev_kfree_skb(skb);
 						goto end;
 					}
@@ -2852,6 +2954,7 @@ check_len_update:
 			}
 
 			skb->priority = 256 + tid;//hw_rxhdr->flags_user_prio;
+			wd_rx(WD_RX_DECODE, skb, rwnx_vif->ndev->ifindex, tid, false);
 
 #ifdef AICWF_RX_REORDER
 			rx_priv_tmp = rx_priv;
@@ -2874,6 +2977,7 @@ check_len_update:
 					pframe = reord_rxframe_alloc(&rx_priv_tmp->freeq_lock, &rx_priv_tmp->rxframes_freequeue);
 					if (!pframe) {
                         txrx_err("no pframe\n");
+						wd_rx(WD_RX_NO_DESC, skb, rwnx_vif->ndev->ifindex, tid, true);
 						dev_kfree_skb(skb);
 						return -1;
 					}
@@ -3128,6 +3232,7 @@ check_len_update:
 				                pframe->ap_fwd_cnt = 1;
 				                pframe->ap_resend_cnt = 0;
 				                pframe->first_fwd_skb = rx_skb;
+								pframe->is_ap_reord = 1;
 				                pframe->last_fwd_skb = rx_skb;
 								pframe->first_resend_skb = NULL;
 								pframe->last_resend_skb = NULL;
@@ -3165,6 +3270,7 @@ check_len_update:
 								pframe->first_fwd_skb = NULL;
 								pframe->last_fwd_skb = NULL;
 								pframe->first_resend_skb = rx_skb;
+								pframe->is_ap_reord = 1;
 								pframe->last_resend_skb = rx_skb;
 							} else {
 								rx_skb->next = NULL;
@@ -3191,10 +3297,10 @@ check_len_update:
 
 				if (pframe) {
 					pframe->is_ap_reord = 1;
-					if (reord_process_unit(pframe, (struct aicwf_rx_priv *)rx_priv, rx_skb, seq_num, tid, 0, 0) < 0) {
-						printk("process unit err\n");
-						goto free_list;
-					}
+					reord_process_unit(pframe, (struct aicwf_rx_priv *)rx_priv,
+							   rx_skb, seq_num, tid, 0, 0);
+					/* Ownership was transferred, including error/drop cases. */
+					pframe = NULL;
 				}
 
 				return 0;

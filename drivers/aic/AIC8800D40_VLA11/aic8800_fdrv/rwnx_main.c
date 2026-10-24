@@ -2961,7 +2961,6 @@ static int rwnx_cfg80211_del_station_compat(struct wiphy *wiphy,
     const u8 *mac = NULL;
 #endif
 #ifdef AICWF_RX_REORDER
-    struct reord_ctrl_info *reord_info, *reord_tmp;
     u8 *macaddr;
     struct aicwf_rx_priv *rx_priv;
 #endif
@@ -3024,15 +3023,7 @@ static int rwnx_cfg80211_del_station_compat(struct wiphy *wiphy,
 				macaddr = cur->mac_addr;
 				printk("deinit:macaddr:%x,%x,%x,%x,%x,%x\r\n", macaddr[0],macaddr[1],macaddr[2], \
 									   macaddr[3],macaddr[4],macaddr[5]);
-				list_for_each_entry_safe(reord_info, reord_tmp,
-					&rx_priv->stas_reord_list, list) {
-					printk("reord_mac:%x,%x,%x,%x,%x,%x\r\n", reord_info->mac_addr[0],reord_info->mac_addr[1],reord_info->mac_addr[2], \
-										   reord_info->mac_addr[3],reord_info->mac_addr[4],reord_info->mac_addr[5]);
-					if (!memcmp(reord_info->mac_addr, macaddr, 6)) {
-						reord_deinit_sta(rx_priv, reord_info);
-						break;
-					}
-				}
+				reord_deinit_by_mac(rx_priv, macaddr);
 			}
 #endif
 #ifdef CONFIG_BAND_STEERING
@@ -3077,7 +3068,6 @@ void apm_staloss_work_process(struct work_struct *work)
 	int error = 0;
 
 #ifdef AICWF_RX_REORDER
-	struct reord_ctrl_info *reord_info, *reord_tmp;
 	u8 *macaddr;
 	struct aicwf_rx_priv *rx_priv;
 #endif
@@ -3143,15 +3133,7 @@ void apm_staloss_work_process(struct work_struct *work)
 			macaddr = cur->mac_addr;
 			printk("deinit:macaddr:%x,%x,%x,%x,%x,%x\r\n", macaddr[0], macaddr[1], macaddr[2], \
 								   macaddr[3], macaddr[4], macaddr[5]);
-			list_for_each_entry_safe(reord_info, reord_tmp,
-				&rx_priv->stas_reord_list, list) {
-				printk("reord_mac:%x,%x,%x,%x,%x,%x\r\n", reord_info->mac_addr[0], reord_info->mac_addr[1], reord_info->mac_addr[2], \
-									   reord_info->mac_addr[3], reord_info->mac_addr[4], reord_info->mac_addr[5]);
-				if (!memcmp(reord_info->mac_addr, macaddr, 6)) {
-					reord_deinit_sta(rx_priv, reord_info);
-					break;
-				}
-			}
+			reord_deinit_by_mac(rx_priv, macaddr);
 		}
 #endif
 

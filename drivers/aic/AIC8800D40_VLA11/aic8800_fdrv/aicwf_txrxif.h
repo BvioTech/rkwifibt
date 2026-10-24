@@ -11,6 +11,7 @@
 
 #include <linux/skbuff.h>
 #include <linux/sched.h>
+#include <linux/refcount.h>
 #include "ipc_shared.h"
 #include "aicwf_rx_prealloc.h"
 #ifdef AICWF_SDIO_SUPPORT
@@ -163,6 +164,8 @@ struct aicwf_tx_priv {
 
 struct reord_ctrl {
 	struct aicwf_rx_priv *rx_priv;
+	struct reord_ctrl_info *owner;
+	bool flushing;
 	u8 enable;
 	u16 ind_sn;
 	u8 wsize_b;
@@ -173,6 +176,8 @@ struct reord_ctrl {
 };
 
 struct reord_ctrl_info {
+	refcount_t refs;
+	bool dying;
 	u8 mac_addr[6];
 	struct reord_ctrl preorder_ctrl[8];
 	struct list_head list;

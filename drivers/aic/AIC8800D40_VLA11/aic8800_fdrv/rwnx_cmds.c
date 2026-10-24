@@ -15,6 +15,7 @@
 
 #include "rwnx_cmds.h"
 #include "rwnx_defs.h"
+#include "wifi_diag.h"
 #include "rwnx_strs.h"
 //#define CREATE_TRACE_POINTS
 #include "rwnx_events.h"
@@ -97,6 +98,7 @@ int cmd_mgr_queue_force_defer(struct rwnx_cmd_mgr *cmd_mgr, struct rwnx_cmd *cmd
 
 	cmd->tkn    = cmd_mgr->next_tkn++;
 	cmd->result = -EINTR;
+	wd_cmd(WD_CMD_QUEUED, cmd->reqid, cmd->tkn, 0, cmd_mgr->queue_sz);
 
 	if (!(cmd->flags & RWNX_CMD_FLAG_NONBLOCK))
 		init_completion(&cmd->complete);
@@ -205,6 +207,7 @@ static int cmd_mgr_queue(struct rwnx_cmd_mgr *cmd_mgr, struct rwnx_cmd *cmd)
 
 	cmd->tkn    = cmd_mgr->next_tkn++;
 	cmd->result = -EINTR;
+	wd_cmd(WD_CMD_QUEUED, cmd->reqid, cmd->tkn, 0, cmd_mgr->queue_sz);
 
 	if (!(cmd->flags & RWNX_CMD_FLAG_NONBLOCK))
 		init_completion(&cmd->complete);
@@ -256,6 +259,7 @@ static int cmd_mgr_queue(struct rwnx_cmd_mgr *cmd_mgr, struct rwnx_cmd *cmd)
 		#else
 		unsigned long tout = msecs_to_jiffies(RWNX_80211_CMD_TIMEOUT_MS * cmd_mgr->queue_sz);
 		if (!wait_for_completion_timeout(&cmd->complete, tout)) {
+			wd_cmd(WD_CMD_TIMEOUT, cmd->reqid, cmd->tkn, -ETIMEDOUT, cmd_mgr->queue_sz);
 			printk(KERN_CRIT"cmd timed-out\n");
 			#ifdef AICWF_SDIO_SUPPORT
 			ret = aicwf_sdio_writeb(sdiodev, sdiodev->sdio_reg.wakeup_reg, 2);
@@ -380,6 +384,7 @@ void cmd_mgr_task_process(struct work_struct *work)
 
 			tout = msecs_to_jiffies(RWNX_80211_CMD_TIMEOUT_MS * cmd_mgr->queue_sz);
 			if (!wait_for_completion_timeout(&next->complete, tout)) {
+				wd_cmd(WD_CMD_TIMEOUT, next->reqid, next->tkn, -ETIMEDOUT, cmd_mgr->queue_sz);
 				printk(KERN_CRIT"cmd timed-out\n");
 #ifdef AICWF_SDIO_SUPPORT
 				if (aicwf_sdio_writeb(sdiodev, sdiodev->sdio_reg.wakeup_reg, 2) < 0) {
@@ -465,6 +470,7 @@ static int cmd_mgr_msgind(struct rwnx_cmd_mgr *cmd_mgr, struct rwnx_cmd_e2amsg *
 
 				if (cmd->e2a_msg && msg->param_len)
 					memcpy(cmd->e2a_msg, &msg->param, msg->param_len);
+				wd_cmd_cfm(msg->id, cmd->tkn, &msg->param, msg->param_len);
 
 				if (RWNX_CMD_WAIT_COMPLETE(cmd->flags))
 					cmd_complete(cmd_mgr, cmd);
